@@ -90,7 +90,7 @@ function IssueCertificate() {
       };
 
       const response = await fetch(
-        "http://localhost:5001/api/credentials",
+  `${process.env.REACT_APP_API_URL}/api/credentials`,
         {
           method: "POST",
           headers: {
