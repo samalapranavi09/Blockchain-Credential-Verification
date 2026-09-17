@@ -1,6 +1,11 @@
 const Credential = require("../models/Credential");
 const crypto = require("crypto");
 
+const {
+  storeCredentialOnBlockchain,
+  verifyCredentialOnBlockchain
+} = require("../services/blockchainService");
+
 // ==========================================
 // CREATE SHA-256 HASH FROM CREDENTIAL DETAILS
 // ==========================================
@@ -44,7 +49,9 @@ const createCredential = async (req, res) => {
     } = req.body;
 
     // Check whether the Credential ID already exists
-    const existingCredential = await Credential.findOne({ credentialId });
+    const existingCredential = await Credential.findOne({
+      credentialId
+    });
 
     if (existingCredential) {
       return res.status(400).json({
@@ -53,7 +60,7 @@ const createCredential = async (req, res) => {
       });
     }
 
-    // Generate SHA-256 hash automatically
+    // Generate SHA-256 hash
     const generatedHash = generateCredentialHash({
       credentialId,
       studentName,
@@ -64,7 +71,9 @@ const createCredential = async (req, res) => {
       issueDate
     });
 
-    // Create and save the credential
+    // ==========================================
+    // SAVE CREDENTIAL IN MONGODB
+    // ==========================================
     const credential = await Credential.create({
       credentialId,
       studentName,
@@ -78,6 +87,48 @@ const createCredential = async (req, res) => {
       status: "Valid"
     });
 
+    // ==========================================
+    // STORE HASH ON POLYGON BLOCKCHAIN
+    // ==========================================
+    try {
+      const blockchainResult =
+        await storeCredentialOnBlockchain(
+          credentialId,
+          generatedHash
+        );
+
+      // Blockchain transaction successful
+      credential.blockchainStatus = "Confirmed";
+
+      // Use the existing transactionHash field
+      credential.transactionHash =
+        blockchainResult.transactionHash;
+
+      await credential.save();
+
+      console.log(
+        `Credential ${credentialId} stored on blockchain`
+      );
+
+      console.log(
+        `Transaction Hash: ${blockchainResult.transactionHash}`
+      );
+
+    } catch (blockchainError) {
+      // Blockchain failed, but MongoDB credential remains valid
+      console.error(
+        "Blockchain storage failed:",
+        blockchainError.message
+      );
+
+      credential.blockchainStatus = "Pending";
+
+      await credential.save();
+    }
+
+    // ==========================================
+    // SEND RESPONSE
+    // ==========================================
     res.status(201).json({
       success: true,
       message: "Credential issued successfully",
@@ -85,6 +136,11 @@ const createCredential = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(
+      "Create Credential Error:",
+      error.message
+    );
+
     res.status(500).json({
       success: false,
       message: "Failed to issue credential",
@@ -100,7 +156,8 @@ const createCredential = async (req, res) => {
 // ==========================================
 const getCredentials = async (req, res) => {
   try {
-    const credentials = await Credential.find().sort({ createdAt: -1 });
+    const credentials = await Credential.find()
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -124,33 +181,40 @@ const getCredentials = async (req, res) => {
 // ==========================================
 const getCredentialStats = async (req, res) => {
   try {
-    const totalCredentials = await Credential.countDocuments();
+    const totalCredentials =
+      await Credential.countDocuments();
 
-    const validCredentials = await Credential.countDocuments({
-      status: "Valid"
-    });
+    const validCredentials =
+      await Credential.countDocuments({
+        status: "Valid"
+      });
 
-    const revokedCredentials = await Credential.countDocuments({
-      status: "Revoked"
-    });
+    const revokedCredentials =
+      await Credential.countDocuments({
+        status: "Revoked"
+      });
 
-    const confirmedOnBlockchain = await Credential.countDocuments({
-      blockchainStatus: "Confirmed"
-    });
+    const confirmedOnBlockchain =
+      await Credential.countDocuments({
+        blockchainStatus: "Confirmed"
+      });
 
-    const pendingBlockchain = await Credential.countDocuments({
-      blockchainStatus: "Pending"
-    });
+    const pendingBlockchain =
+      await Credential.countDocuments({
+        blockchainStatus: "Pending"
+      });
 
-    const recentCredentials = await Credential.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select(
-        "credentialId studentName rollNumber degree department institution issueDate status blockchainStatus createdAt"
-      );
+    const recentCredentials =
+      await Credential.find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select(
+          "credentialId studentName rollNumber degree department institution issueDate status blockchainStatus transactionHash createdAt"
+        );
 
     res.status(200).json({
       success: true,
+
       stats: {
         totalCredentials,
         validCredentials,
@@ -158,6 +222,7 @@ const getCredentialStats = async (req, res) => {
         confirmedOnBlockchain,
         pendingBlockchain
       },
+
       recentCredentials
     });
 
@@ -172,11 +237,17 @@ const getCredentialStats = async (req, res) => {
 
 
 // ==========================================
-// VERIFY A CREDENTIAL BY ID + CHECK INTEGRITY
+// VERIFY A CREDENTIAL
+// + CHECK SHA-256 INTEGRITY
+// + CHECK BLOCKCHAIN HASH
 // GET /api/credentials/:credentialId
 // ==========================================
 const verifyCredential = async (req, res) => {
   try {
+
+    // ==========================================
+    // FIND CREDENTIAL IN MONGODB
+    // ==========================================
     const credential = await Credential.findOne({
       credentialId: req.params.credentialId
     });
@@ -186,55 +257,141 @@ const verifyCredential = async (req, res) => {
         success: false,
         verified: false,
         integrityVerified: false,
+        blockchainVerified: false,
         message: "Credential not found"
       });
     }
 
-    // Check whether credential was revoked
+
+    // ==========================================
+    // CHECK IF REVOKED
+    // ==========================================
     if (credential.status === "Revoked") {
       return res.status(200).json({
         success: true,
         verified: false,
         integrityVerified: false,
+        blockchainVerified: false,
         message: "This credential has been revoked",
         credential
       });
     }
 
-    // Generate hash again from the current stored data
-    const currentHash = generateCredentialHash(credential);
 
-    // Compare with the original hash
+    // ==========================================
+    // REGENERATE SHA-256 HASH
+    // ==========================================
+    const currentHash =
+      generateCredentialHash(credential);
+
+
+    // ==========================================
+    // COMPARE WITH MONGODB HASH
+    // ==========================================
     const integrityVerified =
       currentHash === credential.certificateHash;
 
-    // If hashes don't match, the credential data may have been changed
+
+    // ==========================================
+    // IF MONGODB INTEGRITY FAILS
+    // ==========================================
     if (!integrityVerified) {
       return res.status(200).json({
         success: true,
         verified: false,
         integrityVerified: false,
+        blockchainVerified: false,
         message:
           "Credential integrity check failed. Data may have been modified.",
         credential
       });
     }
 
-    // Credential is valid and unchanged
+
+    // ==========================================
+    // CHECK BLOCKCHAIN
+    // ==========================================
+    let blockchainVerified = false;
+    let blockchainData = null;
+
+    try {
+
+      blockchainData =
+        await verifyCredentialOnBlockchain(
+          credential.credentialId
+        );
+
+
+      // Check whether credential exists on blockchain
+      if (blockchainData.exists) {
+
+        // Compare blockchain hash with MongoDB hash
+        blockchainVerified =
+          blockchainData.certificateHash ===
+          credential.certificateHash;
+      }
+
+    } catch (blockchainError) {
+
+      console.error(
+        "Blockchain verification failed:",
+        blockchainError.message
+      );
+
+      blockchainVerified = false;
+    }
+
+
+    // ==========================================
+    // FINAL VERIFICATION RESULT
+    // ==========================================
+    const verified =
+      integrityVerified &&
+      blockchainVerified;
+
+
+    if (!verified) {
+
+      return res.status(200).json({
+        success: true,
+        verified: false,
+        integrityVerified,
+        blockchainVerified,
+        message:
+          "Credential verification failed. Blockchain data does not match.",
+        credential,
+        blockchainData
+      });
+
+    }
+
+
+    // ==========================================
+    // EVERYTHING MATCHES
+    // ==========================================
     res.status(200).json({
       success: true,
       verified: true,
       integrityVerified: true,
+      blockchainVerified: true,
       message:
-        "Credential verified successfully. Integrity check passed.",
-      credential
+        "Credential verified successfully. MongoDB and blockchain hashes match.",
+      credential,
+      blockchainData
     });
 
   } catch (error) {
+
+    console.error(
+      "Verification Error:",
+      error.message
+    );
+
     res.status(500).json({
       success: false,
       verified: false,
       integrityVerified: false,
+      blockchainVerified: false,
       message: "Verification failed",
       error: error.message
     });
@@ -242,6 +399,9 @@ const verifyCredential = async (req, res) => {
 };
 
 
+// ==========================================
+// EXPORT CONTROLLERS
+// ==========================================
 module.exports = {
   createCredential,
   getCredentials,

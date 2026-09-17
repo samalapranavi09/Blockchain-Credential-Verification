@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const connectDB = require("./config/db");
 const credentialRoutes = require("./routes/credentialRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.get("/", (req, res) => {
 
 // Credential API Routes
 app.use("/api/credentials", credentialRoutes);
+app.use("/api/auth", authRoutes);
 
 // Start Server
 const PORT = process.env.PORT || 5001;
