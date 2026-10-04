@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
 import {
   FaCertificate,
   FaCheckCircle,
@@ -8,7 +9,12 @@ import {
   FaArrowRight,
   FaShieldAlt,
   FaLink,
-  FaExclamationCircle
+  FaExclamationCircle,
+  FaCog,
+  FaUsers,
+  FaSearch,
+  FaHistory,
+  FaSignOutAlt,
 } from "react-icons/fa";
 
 function Dashboard() {
@@ -17,37 +23,62 @@ function Dashboard() {
     validCredentials: 0,
     revokedCredentials: 0,
     confirmedOnBlockchain: 0,
-    pendingBlockchain: 0
+    pendingBlockchain: 0,
   });
 
   const [recentCredentials, setRecentCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch real dashboard data from MongoDB through backend API
+  const API_URL =
+    "https://blockchain-credential-verification-murt.onrender.com";
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError("");
 
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+
       const response = await fetch(
-        "http://127.0.0.1:5001/api/credentials/stats"
+        `${API_URL}/api/credentials/stats`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to fetch dashboard data"
+          data.message || "Failed to load dashboard data"
         );
       }
 
-      setStats(data.stats);
+      setStats(
+        data.stats || {
+          totalCredentials: 0,
+          validCredentials: 0,
+          revokedCredentials: 0,
+          confirmedOnBlockchain: 0,
+          pendingBlockchain: 0,
+        }
+      );
+
       setRecentCredentials(data.recentCredentials || []);
-    } catch (error) {
-      console.error("Dashboard error:", error);
+    } catch (err) {
+      console.error("Dashboard error:", err);
       setError(
-        "Unable to load dashboard data. Please make sure the backend server is running."
+        err.message || "Unable to load dashboard data."
       );
     } finally {
       setLoading(false);
@@ -58,531 +89,602 @@ function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  // Format MongoDB date
   const formatDate = (date) => {
-    if (!date) return "";
+    if (!date) return "—";
 
-    const parsedDate = new Date(date);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return "";
-    }
-
-    return parsedDate.toLocaleDateString("en-IN", {
+    return new Date(date).toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
-      year: "numeric"
+      year: "numeric",
     });
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  };
+
+  const storedUser = localStorage.getItem("user");
+
+  let user = {};
+
+  try {
+    user = storedUser ? JSON.parse(storedUser) : {};
+  } catch {
+    user = {};
+  }
+
+  const adminName = user?.name || "University Admin";
+
+  const getInitials = (name) => {
+    if (!name) return "UA";
+
+    return name
+      .split(" ")
+      .map((word) => word.charAt(0))
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
+  const blockchainPercentage =
+    stats.totalCredentials > 0
+      ? Math.round(
+          (stats.confirmedOnBlockchain /
+            stats.totalCredentials) *
+            100
+        )
+      : 0;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+    <div className="dashboard-page">
 
-      {/* Top Navbar */}
-      <nav
-        className="bg-white border-bottom"
-        style={{ height: "70px" }}
-      >
-        <div className="container-fluid px-4 h-100 d-flex align-items-center justify-content-between">
-
-          <Link
-            to="/dashboard"
-            className="d-flex align-items-center gap-2 text-decoration-none"
-          >
-            <div
-              className="d-flex align-items-center justify-content-center"
-              style={{
-                width: "40px",
-                height: "40px",
-                background: "#2563eb",
-                borderRadius: "9px",
-                color: "white"
-              }}
-            >
+      {/* =========================================
+          TOP NAVIGATION
+      ========================================= */}
+      <header className="dashboard-navbar">
+        <div className="dashboard-navbar-left">
+          <Link to="/dashboard" className="dashboard-brand">
+            <div className="dashboard-brand-icon">
               <FaShieldAlt />
             </div>
 
             <div>
-              <div
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a"
-                }}
-              >
+              <div className="dashboard-brand-title">
                 BCV
               </div>
 
-              <small style={{ color: "#64748b" }}>
-                Administration
-              </small>
+              <div className="dashboard-brand-subtitle">
+                Blockchain Credential Verification
+              </div>
             </div>
           </Link>
+        </div>
 
-          <div className="d-flex align-items-center gap-3">
-            <div className="text-end d-none d-sm-block">
-              <div
-                style={{
-                  fontWeight: "600",
-                  fontSize: "14px"
-                }}
-              >
-                University Admin
-              </div>
+        <div className="dashboard-navbar-right">
 
-              <small style={{ color: "#64748b" }}>
-                Administrator
-              </small>
+          <div className="dashboard-admin">
+            <div className="dashboard-admin-avatar">
+              {getInitials(adminName)}
             </div>
 
-            <div
-              className="d-flex align-items-center justify-content-center"
-              style={{
-                width: "40px",
-                height: "40px",
-                background: "#dbeafe",
-                color: "#2563eb",
-                borderRadius: "50%",
-                fontWeight: "700"
-              }}
-            >
-              A
+            <div className="dashboard-admin-info">
+              <span className="dashboard-admin-name">
+                {adminName}
+              </span>
+
+              <span className="dashboard-admin-role">
+                University Administrator
+              </span>
             </div>
           </div>
+
+          <button
+            className="dashboard-logout"
+            onClick={handleLogout}
+          >
+            <FaSignOutAlt />
+            <span>Logout</span>
+          </button>
+
         </div>
-      </nav>
+      </header>
 
-      {/* Main */}
-      <main className="container-fluid px-4 py-4">
 
-        {/* Header */}
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+      {/* =========================================
+          MAIN CONTENT
+      ========================================= */}
+      <main className="dashboard-main">
+
+        {/* PAGE HEADER */}
+        <section className="dashboard-header">
+
           <div>
-            <h2
-              style={{
-                fontWeight: "800",
-                color: "#0f172a",
-                marginBottom: "6px"
-              }}
-            >
-              Dashboard
-            </h2>
+            <div className="dashboard-eyebrow">
+              ADMINISTRATION PORTAL
+            </div>
 
-            <p
-              style={{
-                color: "#64748b",
-                marginBottom: 0
-              }}
-            >
-              Monitor and manage academic credentials.
+            <h1>Dashboard</h1>
+
+            <p>
+              Manage academic credentials, monitor blockchain
+              records, and verify certificate integrity.
             </p>
           </div>
 
           <Link
-            to="/issue"
-            className="btn px-4 py-2 d-flex align-items-center gap-2"
-            style={{
-              background: "#2563eb",
-              color: "white",
-              borderRadius: "8px",
-              fontWeight: "600"
-            }}
+            to="/issue-certificate"
+            className="dashboard-primary-button"
           >
-            <FaPlus size={13} />
+            <FaPlus />
             Issue Credential
           </Link>
-        </div>
 
-        {/* Error Message */}
+        </section>
+
+
+        {/* ERROR */}
         {error && (
-          <div
-            className="alert d-flex align-items-center gap-2"
-            style={{
-              background: "#fef2f2",
-              color: "#b91c1c",
-              border: "1px solid #fecaca",
-              borderRadius: "10px"
-            }}
-          >
+          <div className="dashboard-error">
             <FaExclamationCircle />
-            {error}
+
+            <div>
+              <strong>Unable to load dashboard</strong>
+
+              <span>{error}</span>
+            </div>
+
+            <button onClick={fetchDashboardData}>
+              Retry
+            </button>
           </div>
         )}
 
-        {/* Statistics */}
-        <div className="row g-4 mb-4">
 
-          {/* Total Credentials */}
-          <div className="col-md-6 col-xl-3">
-            <div
-              className="bg-white p-4 h-100"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-              <div className="d-flex justify-content-between">
-                <div>
-                  <small style={{ color: "#64748b" }}>
-                    Total Credentials
-                  </small>
+        {/* =========================================
+            STATISTICS
+        ========================================= */}
+        <section className="dashboard-stats-grid">
 
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    {loading ? "..." : stats.totalCredentials}
-                  </h3>
-                </div>
+          {/* TOTAL */}
+          <div className="dashboard-stat-card">
 
-                <div
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#dbeafe",
-                    color: "#2563eb",
-                    borderRadius: "10px"
-                  }}
-                  className="d-flex align-items-center justify-content-center"
-                >
-                  <FaCertificate />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Valid Credentials */}
-          <div className="col-md-6 col-xl-3">
-            <div
-              className="bg-white p-4 h-100"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-              <div className="d-flex justify-content-between">
-                <div>
-                  <small style={{ color: "#64748b" }}>
-                    Valid Credentials
-                  </small>
-
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    {loading ? "..." : stats.validCredentials}
-                  </h3>
-                </div>
-
-                <div
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#dcfce7",
-                    color: "#16a34a",
-                    borderRadius: "10px"
-                  }}
-                  className="d-flex align-items-center justify-content-center"
-                >
-                  <FaCheckCircle />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Blockchain Confirmed */}
-          <div className="col-md-6 col-xl-3">
-            <div
-              className="bg-white p-4 h-100"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-              <div className="d-flex justify-content-between">
-                <div>
-                  <small style={{ color: "#64748b" }}>
-                    Blockchain Confirmed
-                  </small>
-
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    {loading ? "..." : stats.confirmedOnBlockchain}
-                  </h3>
-                </div>
-
-                <div
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#f3e8ff",
-                    color: "#9333ea",
-                    borderRadius: "10px"
-                  }}
-                  className="d-flex align-items-center justify-content-center"
-                >
-                  <FaLink />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Pending */}
-          <div className="col-md-6 col-xl-3">
-            <div
-              className="bg-white p-4 h-100"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-              <div className="d-flex justify-content-between">
-                <div>
-                  <small style={{ color: "#64748b" }}>
-                    Blockchain Pending
-                  </small>
-
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    {loading ? "..." : stats.pendingBlockchain}
-                  </h3>
-                </div>
-
-                <div
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#fef3c7",
-                    color: "#d97706",
-                    borderRadius: "10px"
-                  }}
-                  className="d-flex align-items-center justify-content-center"
-                >
-                  <FaClock />
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Activity */}
-        <div className="row g-4">
-
-          <div className="col-lg-8">
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-              <div className="d-flex justify-content-between mb-4">
-                <div>
-                  <h5
-                    style={{
-                      fontWeight: "700",
-                      marginBottom: "5px"
-                    }}
-                  >
-                    Recent Credential Activity
-                  </h5>
-
-                  <small style={{ color: "#64748b" }}>
-                    Latest credentials issued in the system
-                  </small>
-                </div>
-
-                <Link
-                  to="/history"
-                  style={{
-                    color: "#2563eb",
-                    fontSize: "14px",
-                    fontWeight: "600"
-                  }}
-                >
-                  View all
-                </Link>
+            <div className="dashboard-stat-top">
+              <div className="dashboard-stat-icon blue">
+                <FaCertificate />
               </div>
 
-              {/* Loading */}
-              {loading && (
-                <div
-                  className="text-center py-4"
-                  style={{ color: "#64748b" }}
-                >
-                  Loading recent credentials...
-                </div>
-              )}
-
-              {/* No Credentials */}
-              {!loading && recentCredentials.length === 0 && (
-                <div
-                  className="text-center py-4"
-                  style={{ color: "#64748b" }}
-                >
-                  No credentials have been issued yet.
-                </div>
-              )}
-
-              {/* Real Recent Credentials */}
-              {!loading &&
-                recentCredentials.map((credential, index) => (
-                  <div
-                    key={credential._id || credential.credentialId}
-                    className={`d-flex align-items-center justify-content-between py-3 ${
-                      index !== recentCredentials.length - 1
-                        ? "border-bottom"
-                        : ""
-                    }`}
-                  >
-                    <div className="d-flex align-items-center gap-3">
-                      <div
-                        style={{
-                          width: "38px",
-                          height: "38px",
-                          background: "#dcfce7",
-                          color: "#16a34a",
-                          borderRadius: "9px"
-                        }}
-                        className="d-flex align-items-center justify-content-center"
-                      >
-                        <FaCertificate size={15} />
-                      </div>
-
-                      <div>
-                        <div style={{ fontWeight: "600" }}>
-                          Credential Issued
-                        </div>
-
-                        <small style={{ color: "#64748b" }}>
-                          {credential.studentName} · {credential.degree}{" "}
-                          {credential.department}
-                        </small>
-
-                        <div
-                          style={{
-                            fontSize: "12px",
-                            color: "#94a3b8",
-                            marginTop: "2px"
-                          }}
-                        >
-                          {credential.credentialId}
-                        </div>
-                      </div>
-                    </div>
-
-                    <small
-                      className="text-end"
-                      style={{ color: "#64748b" }}
-                    >
-                      {formatDate(credential.createdAt)}
-                    </small>
-                  </div>
-                ))}
+              <span className="dashboard-stat-label">
+                TOTAL CREDENTIALS
+              </span>
             </div>
+
+            <div className="dashboard-stat-number">
+              {loading ? "—" : stats.totalCredentials}
+            </div>
+
+            <div className="dashboard-stat-description">
+              Academic credentials issued
+            </div>
+
           </div>
 
-          {/* Quick Actions */}
-          <div className="col-lg-4">
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-              <h5
-                style={{
-                  fontWeight: "700",
-                  marginBottom: "5px"
-                }}
+
+          {/* VALID */}
+          <div className="dashboard-stat-card">
+
+            <div className="dashboard-stat-top">
+              <div className="dashboard-stat-icon green">
+                <FaCheckCircle />
+              </div>
+
+              <span className="dashboard-stat-label">
+                VALID CREDENTIALS
+              </span>
+            </div>
+
+            <div className="dashboard-stat-number">
+              {loading ? "—" : stats.validCredentials}
+            </div>
+
+            <div className="dashboard-stat-description">
+              Currently active credentials
+            </div>
+
+          </div>
+
+
+          {/* BLOCKCHAIN */}
+          <div className="dashboard-stat-card">
+
+            <div className="dashboard-stat-top">
+              <div className="dashboard-stat-icon purple">
+                <FaLink />
+              </div>
+
+              <span className="dashboard-stat-label">
+                BLOCKCHAIN CONFIRMED
+              </span>
+            </div>
+
+            <div className="dashboard-stat-number">
+              {loading ? "—" : stats.confirmedOnBlockchain}
+            </div>
+
+            <div className="dashboard-stat-description">
+              Records confirmed on Polygon
+            </div>
+
+          </div>
+
+
+          {/* PENDING */}
+          <div className="dashboard-stat-card">
+
+            <div className="dashboard-stat-top">
+              <div className="dashboard-stat-icon orange">
+                <FaClock />
+              </div>
+
+              <span className="dashboard-stat-label">
+                PENDING BLOCKCHAIN
+              </span>
+            </div>
+
+            <div className="dashboard-stat-number">
+              {loading ? "—" : stats.pendingBlockchain}
+            </div>
+
+            <div className="dashboard-stat-description">
+              Awaiting blockchain confirmation
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================================
+            BLOCKCHAIN STATUS
+        ========================================= */}
+        <section className="dashboard-blockchain-card">
+
+          <div className="dashboard-blockchain-left">
+
+            <div className="dashboard-blockchain-icon">
+              <FaShieldAlt />
+            </div>
+
+            <div>
+              <div className="dashboard-blockchain-title">
+                Blockchain Security Status
+              </div>
+
+              <div className="dashboard-blockchain-text">
+                Credential records are protected using
+                SHA-256 hashing and Polygon blockchain
+                verification.
+              </div>
+            </div>
+
+          </div>
+
+
+          <div className="dashboard-blockchain-right">
+
+            <div className="dashboard-progress-wrapper">
+
+              <div className="dashboard-progress-header">
+                <span>Blockchain confirmation</span>
+
+                <strong>
+                  {blockchainPercentage}%
+                </strong>
+              </div>
+
+              <div className="dashboard-progress">
+                <div
+                  className="dashboard-progress-bar"
+                  style={{
+                    width: `${blockchainPercentage}%`,
+                  }}
+                />
+              </div>
+
+            </div>
+
+            <div className="dashboard-network-status">
+              <span className="status-dot"></span>
+              Polygon Amoy Network
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================================
+            RECENT ACTIVITY + QUICK ACTIONS
+        ========================================= */}
+        <section className="dashboard-content-grid">
+
+          {/* RECENT CREDENTIALS */}
+          <div className="dashboard-panel">
+
+            <div className="dashboard-panel-header">
+
+              <div>
+                <span className="dashboard-panel-eyebrow">
+                  ACTIVITY
+                </span>
+
+                <h2>Recent Credentials</h2>
+              </div>
+
+              <Link
+                to="/history"
+                className="dashboard-view-link"
               >
-                Quick Actions
-              </h5>
+                View all
+                <FaArrowRight />
+              </Link>
 
-              <small style={{ color: "#64748b" }}>
-                Common administrative tasks
-              </small>
+            </div>
 
-              <div className="mt-4">
 
-                <Link
-                  to="/issue"
-                  className="d-flex align-items-center justify-content-between p-3 mb-2 text-decoration-none"
-                  style={{
-                    background: "#eff6ff",
-                    borderRadius: "9px",
-                    color: "#1d4ed8"
-                  }}
-                >
-                  <span
-                    className="d-flex align-items-center gap-2"
-                    style={{ fontWeight: "600" }}
+            <div className="dashboard-table">
+
+              <div className="dashboard-table-header">
+                <span>Credential</span>
+                <span>Student</span>
+                <span>Issue Date</span>
+                <span>Status</span>
+              </div>
+
+
+              {loading ? (
+                <div className="dashboard-empty">
+                  Loading credentials...
+                </div>
+              ) : recentCredentials.length === 0 ? (
+                <div className="dashboard-empty">
+                  <FaCertificate />
+
+                  <strong>
+                    No credentials issued yet
+                  </strong>
+
+                  <span>
+                    Start by issuing your first academic
+                    credential.
+                  </span>
+
+                  <Link
+                    to="/issue-certificate"
+                    className="dashboard-small-button"
                   >
                     <FaPlus />
                     Issue Credential
-                  </span>
-
-                  <FaArrowRight size={13} />
-                </Link>
-
-                <Link
-                  to="/students"
-                  className="d-flex align-items-center justify-content-between p-3 mb-2 text-decoration-none"
-                  style={{
-                    background: "#f8fafc",
-                    borderRadius: "9px",
-                    color: "#334155"
-                  }}
-                >
-                  <span
-                    className="d-flex align-items-center gap-2"
-                    style={{ fontWeight: "600" }}
+                  </Link>
+                </div>
+              ) : (
+                recentCredentials.map((credential) => (
+                  <div
+                    className="dashboard-table-row"
+                    key={credential._id || credential.credentialId}
                   >
-                    Manage Students
-                  </span>
 
-                  <FaArrowRight size={13} />
-                </Link>
+                    <div className="credential-id">
+                      <div className="credential-icon">
+                        <FaCertificate />
+                      </div>
 
-                <Link
-                  to="/verify"
-                  className="d-flex align-items-center justify-content-between p-3 text-decoration-none"
-                  style={{
-                    background: "#f8fafc",
-                    borderRadius: "9px",
-                    color: "#334155"
-                  }}
-                >
-                  <span
-                    className="d-flex align-items-center gap-2"
-                    style={{ fontWeight: "600" }}
-                  >
-                    <FaCheckCircle />
-                    Verify Credential
-                  </span>
+                      <div>
+                        <strong>
+                          {credential.credentialId}
+                        </strong>
 
-                  <FaArrowRight size={13} />
-                </Link>
+                        <span>
+                          {credential.degree || "Academic Credential"}
+                        </span>
+                      </div>
+                    </div>
 
-              </div>
+
+                    <div className="credential-student">
+                      {credential.studentName || "—"}
+                    </div>
+
+
+                    <div className="credential-date">
+                      {formatDate(credential.issueDate)}
+                    </div>
+
+
+                    <div>
+                      <span
+                        className={`credential-status ${
+                          credential.status === "Revoked"
+                            ? "revoked"
+                            : credential.blockchainStatus ===
+                              "Confirmed"
+                            ? "confirmed"
+                            : "valid"
+                        }`}
+                      >
+                        {credential.status === "Revoked"
+                          ? "Revoked"
+                          : credential.blockchainStatus ===
+                            "Confirmed"
+                          ? "Blockchain Confirmed"
+                          : "Valid"}
+                      </span>
+                    </div>
+
+                  </div>
+                ))
+              )}
+
             </div>
+
           </div>
 
-        </div>
+
+          {/* QUICK ACTIONS */}
+          <div className="dashboard-panel quick-actions-panel">
+
+            <div className="dashboard-panel-header">
+
+              <div>
+                <span className="dashboard-panel-eyebrow">
+                  SHORTCUTS
+                </span>
+
+                <h2>Quick Actions</h2>
+              </div>
+
+            </div>
+
+
+            <div className="quick-actions">
+
+              <Link
+                to="/issue-certificate"
+                className="quick-action"
+              >
+                <div className="quick-action-icon blue">
+                  <FaPlus />
+                </div>
+
+                <div className="quick-action-text">
+                  <strong>Issue Credential</strong>
+
+                  <span>
+                    Create a new academic credential
+                  </span>
+                </div>
+
+                <FaArrowRight className="quick-action-arrow" />
+              </Link>
+
+
+              <Link
+                to="/students"
+                className="quick-action"
+              >
+                <div className="quick-action-icon green">
+                  <FaUsers />
+                </div>
+
+                <div className="quick-action-text">
+                  <strong>Manage Students</strong>
+
+                  <span>
+                    View and manage student records
+                  </span>
+                </div>
+
+                <FaArrowRight className="quick-action-arrow" />
+              </Link>
+
+
+              <Link
+                to="/verify"
+                className="quick-action"
+              >
+                <div className="quick-action-icon purple">
+                  <FaSearch />
+                </div>
+
+                <div className="quick-action-text">
+                  <strong>Verify Credential</strong>
+
+                  <span>
+                    Check credential authenticity
+                  </span>
+                </div>
+
+                <FaArrowRight className="quick-action-arrow" />
+              </Link>
+
+
+              <Link
+                to="/history"
+                className="quick-action"
+              >
+                <div className="quick-action-icon orange">
+                  <FaHistory />
+                </div>
+
+                <div className="quick-action-text">
+                  <strong>Certificate History</strong>
+
+                  <span>
+                    Review issued credentials
+                  </span>
+                </div>
+
+                <FaArrowRight className="quick-action-arrow" />
+              </Link>
+
+
+              <Link
+                to="/settings"
+                className="quick-action"
+              >
+                <div className="quick-action-icon gray">
+                  <FaCog />
+                </div>
+
+                <div className="quick-action-text">
+                  <strong>Settings</strong>
+
+                  <span>
+                    Manage system configuration
+                  </span>
+                </div>
+
+                <FaArrowRight className="quick-action-arrow" />
+              </Link>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================================
+            SECURITY INFORMATION
+        ========================================= */}
+        <section className="dashboard-security-strip">
+
+          <div className="security-strip-icon">
+            <FaShieldAlt />
+          </div>
+
+          <div className="security-strip-content">
+            <strong>
+              Secure credential infrastructure
+            </strong>
+
+            <span>
+              Your credential records are protected by
+              SHA-256 integrity verification and
+              blockchain-backed records on Polygon Amoy.
+            </span>
+          </div>
+
+          <div className="security-strip-badge">
+            <FaCheckCircle />
+            System Protected
+          </div>
+
+        </section>
+
       </main>
+
     </div>
   );
 }

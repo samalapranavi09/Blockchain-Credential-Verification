@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
 import {
   FaSearch,
   FaPlus,
@@ -8,526 +9,563 @@ import {
   FaCheckCircle,
   FaClock,
   FaEye,
-  FaEllipsisV
+  FaEllipsisV,
+  FaShieldAlt,
+  FaArrowLeft,
 } from "react-icons/fa";
 
 function Students() {
-
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All Departments");
 
-  const students = [
-    {
-      id: "STU001",
-      name: "Rahul Sharma",
-      email: "rahul.sharma@university.edu",
-      department: "Computer Science",
-      year: "2026",
-      credential: "Issued",
-      status: "Active"
-    },
-    {
-      id: "STU002",
-      name: "Priya Reddy",
-      email: "priya.reddy@university.edu",
-      department: "Electronics",
-      year: "2026",
-      credential: "Verified",
-      status: "Active"
-    },
-    {
-      id: "STU003",
-      name: "Arjun Kumar",
-      email: "arjun.kumar@university.edu",
-      department: "Mechanical",
-      year: "2026",
-      credential: "Pending",
-      status: "Active"
-    },
-    {
-      id: "STU004",
-      name: "Sneha Patel",
-      email: "sneha.patel@university.edu",
-      department: "Computer Science",
-      year: "2025",
-      credential: "Issued",
-      status: "Active"
-    },
-    {
-      id: "STU005",
-      name: "Vikram Rao",
-      email: "vikram.rao@university.edu",
-      department: "Information Technology",
-      year: "2026",
-      credential: "Not Issued",
-      status: "Active"
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setError("Please login to view student records.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/credentials`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to load student records."
+        );
+      }
+
+      const credentials = Array.isArray(data)
+        ? data
+        : data.credentials || data.data || [];
+
+      const mappedStudents = credentials.map((credential) => ({
+        id: credential.rollNumber || "N/A",
+
+        name:
+          credential.studentName ||
+          "Unknown Student",
+
+        email:
+          credential.email ||
+          "Not available",
+
+        department:
+          credential.department ||
+          "Not specified",
+
+        institution:
+          credential.institution ||
+          "Not specified",
+
+        year: credential.issueDate
+          ? new Date(credential.issueDate)
+              .getFullYear()
+              .toString()
+          : "N/A",
+
+        credential:
+          credential.blockchainStatus === "Confirmed"
+            ? "Verified"
+            : credential.blockchainStatus === "Pending"
+            ? "Pending"
+            : credential.status === "Valid"
+            ? "Issued"
+            : "Not Issued",
+
+        status:
+          credential.status ||
+          "Active",
+
+        credentialId:
+          credential.credentialId,
+
+        blockchainStatus:
+          credential.blockchainStatus,
+      }));
+
+      setStudents(mappedStudents);
+    } catch (err) {
+      console.error("Students fetch error:", err);
+
+      setError(
+        err.message ||
+          "Unable to load student records."
+      );
+    } finally {
+      setLoading(false);
     }
+  };
+
+
+  /* =========================================
+     FILTER STUDENTS
+  ========================================= */
+
+  const filteredStudents = students.filter(
+    (student) => {
+      const searchText =
+        search.toLowerCase().trim();
+
+      const matchesSearch =
+        student.name
+          .toLowerCase()
+          .includes(searchText) ||
+
+        student.id
+          .toLowerCase()
+          .includes(searchText) ||
+
+        student.email
+          .toLowerCase()
+          .includes(searchText) ||
+
+        student.institution
+          .toLowerCase()
+          .includes(searchText);
+
+      const matchesDepartment =
+        department === "All Departments" ||
+        student.department === department;
+
+      return (
+        matchesSearch &&
+        matchesDepartment
+      );
+    }
+  );
+
+
+  /* =========================================
+     UNIQUE STUDENTS
+  ========================================= */
+
+  const uniqueStudents =
+    Array.from(
+      new Map(
+        students.map((student) => [
+          student.id,
+          student,
+        ])
+      ).values()
+    );
+
+  const totalStudents =
+    uniqueStudents.length;
+
+
+  /* =========================================
+     CREDENTIAL STATISTICS
+  ========================================= */
+
+  const credentialsIssued =
+    students.filter(
+      (student) =>
+        student.credential === "Issued" ||
+        student.credential === "Verified"
+    ).length;
+
+  const verifiedCredentials =
+    students.filter(
+      (student) =>
+        student.credential === "Verified"
+    ).length;
+
+  const pendingCredentials =
+    students.filter(
+      (student) =>
+        student.credential === "Pending"
+    ).length;
+
+
+  /* =========================================
+     DEPARTMENTS
+  ========================================= */
+
+  const departments = [
+    ...new Set(
+      students
+        .map(
+          (student) =>
+            student.department
+        )
+        .filter(Boolean)
+    ),
   ];
 
-  const filteredStudents = students.filter((student) => {
 
-    const matchesSearch =
-      student.name.toLowerCase().includes(search.toLowerCase()) ||
-      student.id.toLowerCase().includes(search.toLowerCase()) ||
-      student.email.toLowerCase().includes(search.toLowerCase());
+  /* =========================================
+     HELPERS
+  ========================================= */
 
-    const matchesDepartment =
-      department === "All Departments" ||
-      student.department === department;
-
-    return matchesSearch && matchesDepartment;
-  });
-
-  const getCredentialStyle = (status) => {
-
+  const getCredentialClass = (status) => {
     if (status === "Verified") {
-      return {
-        background: "#dcfce7",
-        color: "#15803d"
-      };
+      return "student-credential-badge verified";
     }
 
     if (status === "Issued") {
-      return {
-        background: "#dbeafe",
-        color: "#1d4ed8"
-      };
+      return "student-credential-badge issued";
     }
 
     if (status === "Pending") {
-      return {
-        background: "#fef3c7",
-        color: "#b45309"
-      };
+      return "student-credential-badge pending";
     }
 
-    return {
-      background: "#f1f5f9",
-      color: "#64748b"
-    };
+    return "student-credential-badge";
   };
 
+
+  const getInitials = (name) => {
+    if (!name) return "ST";
+
+    return name
+      .split(" ")
+      .map((word) => word.charAt(0))
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc"
-      }}
-    >
+    <div className="students-page">
 
-      {/* TOP NAVBAR */}
+      {/* =========================================
+          TOP NAVIGATION
+      ========================================= */}
 
-      <nav
-        className="bg-white border-bottom"
-        style={{ height: "70px" }}
-      >
+      <nav className="students-navbar">
 
-        <div
-          className="container-fluid px-4 h-100 d-flex align-items-center justify-content-between"
+        <Link
+          to="/dashboard"
+          className="students-brand"
         >
+          <div className="students-brand-icon">
+            <FaShieldAlt />
+          </div>
 
-          <Link
-            to="/dashboard"
-            className="d-flex align-items-center gap-2"
-          >
-
-            <div
-              className="d-flex align-items-center justify-content-center"
-              style={{
-                width: "40px",
-                height: "40px",
-                background: "#2563eb",
-                borderRadius: "9px",
-                color: "white",
-                fontWeight: "700"
-              }}
-            >
+          <div>
+            <div className="students-brand-title">
               BCV
             </div>
 
-            <div>
-
-              <div
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a"
-                }}
-              >
-                Blockchain Credential Verification
-              </div>
-
-              <small style={{ color: "#64748b" }}>
-                University Administration
-              </small>
-
+            <div className="students-brand-subtitle">
+              Blockchain Credential Verification
             </div>
+          </div>
+        </Link>
 
-          </Link>
 
-          <Link
-            to="/dashboard"
-            style={{
-              color: "#64748b",
-              fontSize: "14px"
-            }}
-          >
-            ← Dashboard
-          </Link>
-
-        </div>
+        <Link
+          to="/dashboard"
+          className="students-back-link"
+        >
+          <FaArrowLeft />
+          Dashboard
+        </Link>
 
       </nav>
 
-      {/* MAIN CONTENT */}
 
-      <main className="container-fluid px-4 py-4">
+      {/* =========================================
+          MAIN CONTENT
+      ========================================= */}
+
+      <main className="students-main">
 
         {/* PAGE HEADER */}
 
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <section className="students-page-header">
 
           <div>
 
-            <h2
-              style={{
-                fontWeight: "800",
-                color: "#0f172a",
-                marginBottom: "6px"
-              }}
-            >
-              Students
-            </h2>
+            <div className="students-eyebrow">
+              UNIVERSITY ADMINISTRATION
+            </div>
 
-            <p
-              style={{
-                color: "#64748b",
-                marginBottom: 0
-              }}
-            >
-              Manage student records and academic credentials.
+            <h1>
+              Students
+            </h1>
+
+            <p>
+              Manage student records and monitor
+              their academic credentials.
             </p>
 
           </div>
 
-          <button
-            className="btn px-4 py-2 d-flex align-items-center gap-2"
-            style={{
-              background: "#2563eb",
-              color: "white",
-              borderRadius: "8px",
-              fontWeight: "600"
-            }}
+
+          <Link
+            to="/issue"
+            className="students-primary-button"
           >
-            <FaPlus size={13} />
-            Add Student
-          </button>
+            <FaPlus />
+            Issue Credential
+          </Link>
 
-        </div>
+        </section>
 
-        {/* STATISTICS */}
 
-        <div className="row g-4 mb-4">
+        {/* ERROR */}
 
-          <div className="col-md-6 col-xl-3">
+        {error && (
+          <div className="students-error">
 
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
+            <FaCertificate />
+
+            <div>
+              <strong>
+                Unable to load student records
+              </strong>
+
+              <span>
+                {error}
+              </span>
+            </div>
+
+            <button
+              onClick={fetchStudents}
             >
+              Retry
+            </button>
 
-              <div className="d-flex justify-content-between">
+          </div>
+        )}
 
-                <div>
 
-                  <small style={{ color: "#64748b" }}>
-                    Total Students
-                  </small>
+        {/* =========================================
+            STATISTICS
+        ========================================= */}
 
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    248
-                  </h3>
+        <section className="students-stats-grid">
 
-                </div>
+          <div className="students-stat-card">
 
-                <div
-                  className="d-flex align-items-center justify-content-center"
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#dbeafe",
-                    color: "#2563eb",
-                    borderRadius: "10px"
-                  }}
-                >
-                  <FaUsers />
-                </div>
+            <div className="students-stat-top">
 
+              <div className="students-stat-icon blue">
+                <FaUsers />
               </div>
+
+              <span>
+                STUDENTS
+              </span>
+
+            </div>
+
+            <div className="students-stat-number">
+              {loading ? "—" : totalStudents}
+            </div>
+
+            <p>
+              Unique student records
+            </p>
+
+          </div>
+
+
+          <div className="students-stat-card">
+
+            <div className="students-stat-top">
+
+              <div className="students-stat-icon green">
+                <FaCertificate />
+              </div>
+
+              <span>
+                ISSUED
+              </span>
+
+            </div>
+
+            <div className="students-stat-number">
+              {loading ? "—" : credentialsIssued}
+            </div>
+
+            <p>
+              Credentials issued
+            </p>
+
+          </div>
+
+
+          <div className="students-stat-card">
+
+            <div className="students-stat-top">
+
+              <div className="students-stat-icon purple">
+                <FaCheckCircle />
+              </div>
+
+              <span>
+                VERIFIED
+              </span>
+
+            </div>
+
+            <div className="students-stat-number">
+              {loading ? "—" : verifiedCredentials}
+            </div>
+
+            <p>
+              Blockchain-confirmed credentials
+            </p>
+
+          </div>
+
+
+          <div className="students-stat-card">
+
+            <div className="students-stat-top">
+
+              <div className="students-stat-icon orange">
+                <FaClock />
+              </div>
+
+              <span>
+                PENDING
+              </span>
+
+            </div>
+
+            <div className="students-stat-number">
+              {loading ? "—" : pendingCredentials}
+            </div>
+
+            <p>
+              Awaiting confirmation
+            </p>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================================
+            STUDENT DIRECTORY
+        ========================================= */}
+
+        <section className="students-directory">
+
+          {/* DIRECTORY HEADER */}
+
+          <div className="students-directory-header">
+
+            <div>
+
+              <div className="students-section-eyebrow">
+                DIRECTORY
+              </div>
+
+              <h2>
+                Student Records
+              </h2>
+
+            </div>
+
+            <div className="students-result-count">
+              {loading
+                ? "Loading..."
+                : `${filteredStudents.length} records`}
+            </div>
+
+          </div>
+
+
+          {/* SEARCH / FILTER */}
+
+          <div className="students-filters">
+
+            <div className="students-search">
+
+              <FaSearch />
+
+              <input
+                type="text"
+                placeholder="Search by name, ID, email or institution..."
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="students-clear-search"
+                >
+                  ×
+                </button>
+              )}
+
+            </div>
+
+
+            <div className="students-filter-select">
+
+              <select
+                value={department}
+                onChange={(e) =>
+                  setDepartment(e.target.value)
+                }
+              >
+
+                <option>
+                  All Departments
+                </option>
+
+                {departments.map(
+                  (dept) => (
+                    <option
+                      key={dept}
+                      value={dept}
+                    >
+                      {dept}
+                    </option>
+                  )
+                )}
+
+              </select>
 
             </div>
 
           </div>
 
-          <div className="col-md-6 col-xl-3">
-
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-
-              <div className="d-flex justify-content-between">
-
-                <div>
-
-                  <small style={{ color: "#64748b" }}>
-                    Credentials Issued
-                  </small>
-
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    184
-                  </h3>
-
-                </div>
-
-                <div
-                  className="d-flex align-items-center justify-content-center"
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#dcfce7",
-                    color: "#16a34a",
-                    borderRadius: "10px"
-                  }}
-                >
-                  <FaCertificate />
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="col-md-6 col-xl-3">
-
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-
-              <div className="d-flex justify-content-between">
-
-                <div>
-
-                  <small style={{ color: "#64748b" }}>
-                    Verified Credentials
-                  </small>
-
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    126
-                  </h3>
-
-                </div>
-
-                <div
-                  className="d-flex align-items-center justify-content-center"
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#dcfce7",
-                    color: "#16a34a",
-                    borderRadius: "10px"
-                  }}
-                >
-                  <FaCheckCircle />
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <div className="col-md-6 col-xl-3">
-
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
-
-              <div className="d-flex justify-content-between">
-
-                <div>
-
-                  <small style={{ color: "#64748b" }}>
-                    Pending Credentials
-                  </small>
-
-                  <h3
-                    style={{
-                      fontWeight: "800",
-                      marginTop: "8px"
-                    }}
-                  >
-                    8
-                  </h3>
-
-                </div>
-
-                <div
-                  className="d-flex align-items-center justify-content-center"
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#fef3c7",
-                    color: "#d97706",
-                    borderRadius: "10px"
-                  }}
-                >
-                  <FaClock />
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* STUDENT TABLE */}
-
-        <div
-          className="bg-white"
-          style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: "12px",
-            overflow: "hidden"
-          }}
-        >
-
-          {/* TABLE HEADER */}
-
-          <div className="p-4 border-bottom">
-
-            <div className="row g-3 align-items-center">
-
-              <div className="col-lg-6">
-
-                <div className="position-relative">
-
-                  <FaSearch
-                    style={{
-                      position: "absolute",
-                      left: "15px",
-                      top: "14px",
-                      color: "#94a3b8"
-                    }}
-                  />
-
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Search by name, student ID or email..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{
-                      paddingLeft: "42px",
-                      height: "46px",
-                      borderRadius: "8px"
-                    }}
-                  />
-
-                </div>
-
-              </div>
-
-              <div className="col-lg-3">
-
-                <select
-                  className="form-select"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  style={{
-                    height: "46px",
-                    borderRadius: "8px"
-                  }}
-                >
-
-                  <option>All Departments</option>
-                  <option>Computer Science</option>
-                  <option>Electronics</option>
-                  <option>Mechanical</option>
-                  <option>Information Technology</option>
-
-                </select>
-
-              </div>
-
-              <div className="col-lg-3 text-lg-end">
-
-                <span
-                  style={{
-                    color: "#64748b",
-                    fontSize: "14px"
-                  }}
-                >
-                  Showing {filteredStudents.length} students
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
 
           {/* TABLE */}
 
-          <div className="table-responsive">
+          <div className="students-table-wrapper">
 
-            <table
-              className="table mb-0 align-middle"
-              style={{
-                minWidth: "900px"
-              }}
-            >
+            <table className="students-table">
 
-              <thead
-                style={{
-                  background: "#f8fafc"
-                }}
-              >
+              <thead>
 
                 <tr>
 
-                  <th className="px-4 py-3">
+                  <th>
                     Student
                   </th>
 
@@ -540,7 +578,11 @@ function Students() {
                   </th>
 
                   <th>
-                    Graduation
+                    Institution
+                  </th>
+
+                  <th>
+                    Year
                   </th>
 
                   <th>
@@ -559,177 +601,269 @@ function Students() {
 
               </thead>
 
+
               <tbody>
 
-                {filteredStudents.map((student) => (
+                {/* LOADING */}
 
-                  <tr key={student.id}>
-
-                    <td className="px-4">
-
-                      <div className="d-flex align-items-center gap-3">
-
-                        <div
-                          className="d-flex align-items-center justify-content-center"
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            borderRadius: "50%",
-                            background: "#dbeafe",
-                            color: "#2563eb",
-                            fontWeight: "700"
-                          }}
-                        >
-                          {student.name.charAt(0)}
-                        </div>
-
-                        <div>
-
-                          <div
-                            style={{
-                              fontWeight: "600",
-                              color: "#0f172a"
-                            }}
-                          >
-                            {student.name}
-                          </div>
-
-                          <small style={{ color: "#64748b" }}>
-                            {student.email}
-                          </small>
-
-                        </div>
-
-                      </div>
-
-                    </td>
-
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: "600",
-                          color: "#334155"
-                        }}
-                      >
-                        {student.id}
-                      </span>
-                    </td>
-
-                    <td>
-                      {student.department}
-                    </td>
-
-                    <td>
-                      {student.year}
-                    </td>
-
-                    <td>
-
-                      <span
-                        className="px-2 py-1"
-                        style={{
-                          ...getCredentialStyle(student.credential),
-                          borderRadius: "6px",
-                          fontSize: "12px",
-                          fontWeight: "600"
-                        }}
-                      >
-                        {student.credential}
-                      </span>
-
-                    </td>
-
-                    <td>
-
-                      <span
-                        className="d-flex align-items-center gap-1"
-                        style={{
-                          color: "#15803d",
-                          fontSize: "13px",
-                          fontWeight: "600"
-                        }}
-                      >
-                        <FaCheckCircle size={11} />
-                        {student.status}
-                      </span>
-
-                    </td>
-
-                    <td>
-
-                      <div className="d-flex gap-2">
-
-                        <button
-                          className="btn btn-sm"
-                          title="View Student"
-                          style={{
-                            background: "#f1f5f9",
-                            color: "#475569"
-                          }}
-                        >
-                          <FaEye size={13} />
-                        </button>
-
-                        <button
-                          className="btn btn-sm"
-                          title="More options"
-                          style={{
-                            background: "#f1f5f9",
-                            color: "#475569"
-                          }}
-                        >
-                          <FaEllipsisV size={13} />
-                        </button>
-
-                      </div>
-
-                    </td>
-
-                  </tr>
-
-                ))}
-
-                {filteredStudents.length === 0 && (
-
+                {loading && (
                   <tr>
 
                     <td
-                      colSpan="7"
-                      className="text-center py-5"
+                      colSpan="8"
+                      className="students-loading"
                     >
 
-                      <FaUsers
-                        size={30}
-                        style={{
-                          color: "#cbd5e1",
-                          marginBottom: "10px"
-                        }}
-                      />
+                      <div className="students-spinner"></div>
 
-                      <div
-                        style={{
-                          fontWeight: "600",
-                          color: "#475569"
-                        }}
-                      >
-                        No students found
-                      </div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Try changing your search or filter.
-                      </small>
+                      <span>
+                        Loading student records...
+                      </span>
 
                     </td>
 
                   </tr>
-
                 )}
+
+
+                {/* STUDENTS */}
+
+                {!loading &&
+                  filteredStudents.map(
+                    (student) => (
+                      <tr
+                        key={
+                          student.credentialId ||
+                          student.id
+                        }
+                      >
+
+                        {/* STUDENT */}
+
+                        <td>
+
+                          <div className="student-profile">
+
+                            <div className="student-avatar">
+                              {getInitials(
+                                student.name
+                              )}
+                            </div>
+
+                            <div className="student-profile-info">
+
+                              <strong>
+                                {student.name}
+                              </strong>
+
+                              <span>
+                                {student.email}
+                              </span>
+
+                            </div>
+
+                          </div>
+
+                        </td>
+
+
+                        {/* STUDENT ID */}
+
+                        <td>
+                          <span className="student-id">
+                            {student.id}
+                          </span>
+                        </td>
+
+
+                        {/* DEPARTMENT */}
+
+                        <td>
+                          <span className="student-department">
+                            {student.department}
+                          </span>
+                        </td>
+
+
+                        {/* INSTITUTION */}
+
+                        <td>
+                          <span className="student-institution">
+                            {student.institution}
+                          </span>
+                        </td>
+
+
+                        {/* YEAR */}
+
+                        <td>
+                          <span className="student-year">
+                            {student.year}
+                          </span>
+                        </td>
+
+
+                        {/* CREDENTIAL */}
+
+                        <td>
+
+                          <span
+                            className={getCredentialClass(
+                              student.credential
+                            )}
+                          >
+
+                            {student.credential ===
+                              "Verified" && (
+                              <FaCheckCircle />
+                            )}
+
+                            {student.credential ===
+                              "Pending" && (
+                              <FaClock />
+                            )}
+
+                            {student.credential ===
+                              "Issued" && (
+                              <FaCertificate />
+                            )}
+
+                            {student.credential}
+
+                          </span>
+
+                        </td>
+
+
+                        {/* STATUS */}
+
+                        <td>
+
+                          <span
+                            className={`student-status ${
+                              student.status ===
+                              "Revoked"
+                                ? "revoked"
+                                : "active"
+                            }`}
+                          >
+
+                            <span className="student-status-dot"></span>
+
+                            {student.status}
+
+                          </span>
+
+                        </td>
+
+
+                        {/* ACTION */}
+
+                        <td>
+
+                          <div className="student-actions">
+
+                            <Link
+                              to={`/verify?credentialId=${encodeURIComponent(
+                                student.credentialId || ""
+                              )}`}
+                              className="student-action-button"
+                              title="Verify Credential"
+                            >
+                              <FaEye />
+                            </Link>
+
+
+                            <button
+                              type="button"
+                              className="student-action-button"
+                              title="View Credential ID"
+                              onClick={() =>
+                                alert(
+                                  `Credential ID: ${
+                                    student.credentialId ||
+                                    "N/A"
+                                  }`
+                                )
+                              }
+                            >
+                              <FaEllipsisV />
+                            </button>
+
+                          </div>
+
+                        </td>
+
+                      </tr>
+                    )
+                  )}
+
+
+                {/* EMPTY */}
+
+                {!loading &&
+                  filteredStudents.length === 0 && (
+                    <tr>
+
+                      <td
+                        colSpan="8"
+                        className="students-empty"
+                      >
+
+                        <div className="students-empty-icon">
+                          <FaUsers />
+                        </div>
+
+                        <strong>
+                          No students found
+                        </strong>
+
+                        <span>
+                          Try changing your search
+                          or department filter.
+                        </span>
+
+                        {(search ||
+                          department !==
+                            "All Departments") && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearch("");
+                              setDepartment(
+                                "All Departments"
+                              );
+                            }}
+                          >
+                            Clear Filters
+                          </button>
+                        )}
+
+                      </td>
+
+                    </tr>
+                  )}
 
               </tbody>
 
             </table>
 
           </div>
+
+        </section>
+
+
+        {/* FOOTER SECURITY NOTE */}
+
+        <div className="students-security-note">
+
+          <FaShieldAlt />
+
+          <span>
+            Student credential records are protected
+            using authenticated access, SHA-256 integrity
+            verification and blockchain-backed records.
+          </span>
 
         </div>
 

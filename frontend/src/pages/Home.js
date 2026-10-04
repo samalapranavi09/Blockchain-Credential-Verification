@@ -1,219 +1,127 @@
 import React from "react";
-import Navbar from "../components/Navbar";
+import { Link } from "react-router-dom";
+import {
+  FaShieldAlt,
+  FaQrcode,
+  FaLink,
+  FaLock,
+  FaCheckCircle,
+  FaSearch,
+  FaUniversity,
+  FaArrowRight,
+} from "react-icons/fa";
 
 function Home() {
   return (
-    <>
-      <Navbar />
+    <div className="home-page">
 
-      <section className="py-5">
-        <div className="container py-5">
+      {/* =========================
+          HERO SECTION
+      ========================= */}
+      <section className="home-hero">
+        <div className="home-hero-container">
 
-          <div className="row align-items-center">
+          {/* Left Content */}
+          <div className="home-hero-content">
 
-            <div className="col-lg-7">
+            <div className="home-badge">
+              <FaShieldAlt />
+              <span>BLOCKCHAIN-BASED CREDENTIAL VERIFICATION</span>
+            </div>
 
-              <span
-                className="badge px-3 py-2 mb-3"
-                style={{
-                  background: "#dbeafe",
-                  color: "#1d4ed8",
-                  fontWeight: "600"
-                }}
+            <h1>
+              Trust Every
+              <span> Academic Credential.</span>
+            </h1>
+
+            <p className="home-hero-description">
+              A secure and tamper-resistant platform for issuing,
+              managing, and instantly verifying academic credentials
+              using blockchain technology.
+            </p>
+
+            <div className="home-hero-buttons">
+
+              <Link
+                to="/verify"
+                className="home-primary-button"
               >
-                BLOCKCHAIN-BASED CREDENTIAL VERIFICATION
-              </span>
+                <FaSearch />
+                Verify Credential
+                <FaArrowRight />
+              </Link>
 
-              <h1
-                style={{
-                  fontSize: "clamp(40px, 5vw, 64px)",
-                  fontWeight: "800",
-                  lineHeight: "1.08",
-                  color: "#0f172a"
-                }}
+              <Link
+                to="/login"
+                className="home-secondary-button"
               >
-                Trust Every
-                <br />
-                Academic Credential.
-              </h1>
-
-              <p
-                className="mt-4"
-                style={{
-                  fontSize: "18px",
-                  lineHeight: "1.8",
-                  color: "#64748b",
-                  maxWidth: "650px"
-                }}
-              >
-                A secure academic credential verification platform
-                that combines cryptographic hashing, decentralized
-                storage, and blockchain technology to make certificates
-                tamper-evident and instantly verifiable.
-              </p>
-
-              <div className="d-flex gap-3 mt-4 flex-wrap">
-
-                <a
-                  href="/verify"
-                  className="btn px-4 py-3"
-                  style={{
-                    background: "#2563eb",
-                    color: "white",
-                    borderRadius: "8px",
-                    fontWeight: "600"
-                  }}
-                >
-                  Verify a Credential →
-                </a>
-
-                <a
-                  href="/login"
-                  className="btn px-4 py-3"
-                  style={{
-                    border: "1px solid #cbd5e1",
-                    color: "#0f172a",
-                    borderRadius: "8px",
-                    fontWeight: "600",
-                    background: "white"
-                  }}
-                >
-                  University Login
-                </a>
-
-              </div>
+                <FaUniversity />
+                University Login
+              </Link>
 
             </div>
 
-            <div className="col-lg-5 mt-5 mt-lg-0">
+            <div className="home-trust-line">
+              <FaCheckCircle />
+              <span>
+                Secure verification powered by SHA-256 and Polygon blockchain
+              </span>
+            </div>
 
-              <div
-                className="p-4 shadow-sm"
-                style={{
-                  background: "white",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "18px"
-                }}
-              >
+          </div>
 
-                <div className="d-flex align-items-center gap-3 mb-4">
 
-                  <div
-                    className="d-flex align-items-center justify-content-center"
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      background: "#dcfce7",
-                      borderRadius: "12px",
-                      color: "#16a34a",
-                      fontSize: "24px"
-                    }}
-                  >
-                    ✓
-                  </div>
+          {/* Right Visual */}
+          <div className="home-hero-visual">
 
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: "700",
-                        color: "#0f172a"
-                      }}
-                    >
-                      Credential Verified
-                    </div>
+            <div className="verification-card">
 
-                    <small style={{ color: "#64748b" }}>
-                      Blockchain verification successful
-                    </small>
-                  </div>
+              <div className="verification-card-header">
 
+                <div className="verification-icon">
+                  <FaShieldAlt />
                 </div>
 
-                <hr />
+                <div>
+                  <div className="verification-label">
+                    CREDENTIAL STATUS
+                  </div>
 
-                <div className="mb-3">
-                  <small style={{ color: "#64748b" }}>
-                    Credential ID
-                  </small>
-
-                  <div
-                    style={{
-                      fontWeight: "700",
-                      marginTop: "4px"
-                    }}
-                  >
-                    BCV-2026-001
+                  <div className="verification-status">
+                    <FaCheckCircle />
+                    Verified
                   </div>
                 </div>
 
-                <div className="row">
+              </div>
 
-                  <div className="col-6 mb-3">
-                    <small style={{ color: "#64748b" }}>
-                      Degree
-                    </small>
 
-                    <div style={{ fontWeight: "600" }}>
-                      B.Tech
-                    </div>
-                  </div>
+              <div className="verification-divider"></div>
 
-                  <div className="col-6 mb-3">
-                    <small style={{ color: "#64748b" }}>
-                      Department
-                    </small>
 
-                    <div style={{ fontWeight: "600" }}>
-                      Computer Science
-                    </div>
-                  </div>
+              <div className="verification-details">
 
+                <div className="verification-detail">
+                  <span>Credential ID</span>
+                  <strong>BCV-2026-004</strong>
                 </div>
 
-                <div
-                  className="p-3"
-                  style={{
-                    background: "#f8fafc",
-                    borderRadius: "10px"
-                  }}
-                >
-
-                  <div className="d-flex justify-content-between mb-2">
-
-                    <span style={{ color: "#64748b" }}>
-                      SHA-256
-                    </span>
-
-                    <span
-                      style={{
-                        color: "#16a34a",
-                        fontWeight: "600"
-                      }}
-                    >
-                      ✓ Matched
-                    </span>
-
-                  </div>
-
-                  <div className="d-flex justify-content-between">
-
-                    <span style={{ color: "#64748b" }}>
-                      Blockchain
-                    </span>
-
-                    <span
-                      style={{
-                        color: "#16a34a",
-                        fontWeight: "600"
-                      }}
-                    >
-                      ✓ Verified
-                    </span>
-
-                  </div>
-
+                <div className="verification-detail">
+                  <span>Student</span>
+                  <strong>Academic Credential</strong>
                 </div>
 
+                <div className="verification-detail">
+                  <span>Blockchain</span>
+                  <strong>Polygon Amoy</strong>
+                </div>
+
+              </div>
+
+
+              <div className="verification-secure">
+                <FaLock />
+                <span>Blockchain record confirmed</span>
               </div>
 
             </div>
@@ -222,7 +130,257 @@ function Home() {
 
         </div>
       </section>
-    </>
+
+
+      {/* =========================
+          FEATURES
+      ========================= */}
+      <section className="home-features">
+
+        <div className="home-section-heading">
+
+          <span className="home-section-label">
+            WHY BLOCKCHAIN CREDENTIAL VERIFICATION?
+          </span>
+
+          <h2>
+            Built for secure academic verification
+          </h2>
+
+          <p>
+            Our system combines secure hashing, blockchain records,
+            and easy verification to help protect academic credentials.
+          </p>
+
+        </div>
+
+
+        <div className="home-feature-grid">
+
+          {/* Feature 1 */}
+          <div className="home-feature-card">
+
+            <div className="home-feature-icon blue">
+              <FaShieldAlt />
+            </div>
+
+            <h3>Blockchain Security</h3>
+
+            <p>
+              Credential hashes are recorded on the Polygon blockchain,
+              creating an independent and tamper-resistant verification record.
+            </p>
+
+          </div>
+
+
+          {/* Feature 2 */}
+          <div className="home-feature-card">
+
+            <div className="home-feature-icon green">
+              <FaCheckCircle />
+            </div>
+
+            <h3>Instant Verification</h3>
+
+            <p>
+              Employers and other authorized users can verify a credential
+              using its unique Credential ID.
+            </p>
+
+          </div>
+
+
+          {/* Feature 3 */}
+          <div className="home-feature-card">
+
+            <div className="home-feature-icon purple">
+              <FaQrcode />
+            </div>
+
+            <h3>QR-Based Access</h3>
+
+            <p>
+              QR codes provide a convenient way to access the credential
+              verification page quickly.
+            </p>
+
+          </div>
+
+
+          {/* Feature 4 */}
+          <div className="home-feature-card">
+
+            <div className="home-feature-icon orange">
+              <FaLock />
+            </div>
+
+            <h3>Data Integrity</h3>
+
+            <p>
+              SHA-256 hashing helps detect whether credential information
+              has been modified after issuance.
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =========================
+          HOW IT WORKS
+      ========================= */}
+      <section className="home-process">
+
+        <div className="home-section-heading">
+
+          <span className="home-section-label">
+            SIMPLE VERIFICATION FLOW
+          </span>
+
+          <h2>
+            Issue. Secure. Verify.
+          </h2>
+
+          <p>
+            The system connects credential issuance, hashing,
+            blockchain storage, and verification in one workflow.
+          </p>
+
+        </div>
+
+
+        <div className="home-process-grid">
+
+          <div className="home-process-step">
+
+            <div className="process-number">
+              01
+            </div>
+
+            <div className="process-icon">
+              <FaUniversity />
+            </div>
+
+            <h3>Issue</h3>
+
+            <p>
+              The university administrator enters the student's
+              academic credential information.
+            </p>
+
+          </div>
+
+
+          <div className="process-line"></div>
+
+
+          <div className="home-process-step">
+
+            <div className="process-number">
+              02
+            </div>
+
+            <div className="process-icon">
+              <FaShieldAlt />
+            </div>
+
+            <h3>Secure</h3>
+
+            <p>
+              The backend generates a SHA-256 hash and records
+              the credential hash on the blockchain.
+            </p>
+
+          </div>
+
+
+          <div className="process-line"></div>
+
+
+          <div className="home-process-step">
+
+            <div className="process-number">
+              03
+            </div>
+
+            <div className="process-icon">
+              <FaSearch />
+            </div>
+
+            <h3>Verify</h3>
+
+            <p>
+              A verifier enters the Credential ID or uses the
+              QR code to check the credential.
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =========================
+          FINAL CTA
+      ========================= */}
+      <section className="home-cta">
+
+        <div className="home-cta-content">
+
+          <div className="home-cta-icon">
+            <FaLink />
+          </div>
+
+          <div>
+            <h2>
+              Ready to verify a credential?
+            </h2>
+
+            <p>
+              Enter a Credential ID and check its authenticity and integrity.
+            </p>
+          </div>
+
+          <Link
+            to="/verify"
+            className="home-cta-button"
+          >
+            Verify Now
+            <FaArrowRight />
+          </Link>
+
+        </div>
+
+      </section>
+
+
+      {/* =========================
+          FOOTER
+      ========================= */}
+      <footer className="home-footer">
+
+        <div className="home-footer-content">
+
+          <div>
+            <strong>BCV</strong>
+            <span>
+              Blockchain Credential Verification
+            </span>
+          </div>
+
+          <div className="home-footer-right">
+            Academic Credential Verification System
+          </div>
+
+        </div>
+
+      </footer>
+
+    </div>
   );
 }
 

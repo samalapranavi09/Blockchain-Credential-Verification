@@ -1,687 +1,1401 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import {
-  FaShieldAlt,
   FaUniversity,
-  FaLock,
+  FaUser,
+  FaEnvelope,
   FaBell,
-  FaDatabase,
-  FaSave
+  FaShieldAlt,
+  FaLock,
+  FaSave,
+  FaCheckCircle,
+  FaTimes,
+  FaCube,
+  FaKey,
+  FaArrowLeft,
 } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "https://blockchain-credential-verification-murt.onrender.com";
 
 function Settings() {
+  const navigate = useNavigate();
 
   const [settings, setSettings] = useState({
-    universityName: "ABC Institute of Technology",
-    adminName: "System Administrator",
-    email: "admin@abcuniversity.edu",
+    universityName: "",
+    adminName: "",
+    email: "",
     notifications: true,
     verificationAlerts: true,
-    blockchainNotifications: true
+    blockchainNotifications: true,
   });
 
-  const [saved, setSaved] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  /* ================= LOAD SETTINGS ================= */
+
+  useEffect(() => {
+    const savedSettings = localStorage.getItem("bcvSettings");
+    const savedUser = localStorage.getItem("user");
+
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (error) {
+        console.error("Unable to load saved settings:", error);
+      }
+    }
+
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+
+        setSettings((prev) => ({
+          ...prev,
+          adminName: parsedUser.name || prev.adminName,
+          email: parsedUser.email || prev.email,
+        }));
+      } catch (error) {
+        console.error("Unable to load user:", error);
+      }
+    }
+  }, []);
+
+  /* ================= SETTINGS CHANGE ================= */
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setSettings({
-      ...settings,
-      [name]: type === "checkbox" ? checked : value
-    });
-
-    setSaved(false);
+    setSettings((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
-  const handleSave = (e) => {
+  /* ================= SAVE SETTINGS ================= */
+
+  const handleSaveSettings = () => {
+    setMessage("");
+    setError("");
+
+    try {
+      localStorage.setItem(
+        "bcvSettings",
+        JSON.stringify(settings)
+      );
+
+      setMessage("Settings saved successfully.");
+
+      setTimeout(() => {
+        setMessage("");
+      }, 3000);
+    } catch (error) {
+      setError("Unable to save settings.");
+    }
+  };
+
+  /* ================= PASSWORD INPUT ================= */
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+
+    setPasswordData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  /* ================= CHANGE PASSWORD ================= */
+
+  const handleChangePassword = async (e) => {
     e.preventDefault();
 
-    setSaved(true);
+    setError("");
+    setMessage("");
 
-    setTimeout(() => {
-      setSaved(false);
-    }, 3000);
+    if (!passwordData.currentPassword) {
+      setError("Please enter your current password.");
+      return;
+    }
+
+    if (!passwordData.newPassword) {
+      setError("Please enter a new password.");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setError(
+        "New password must contain at least 6 characters."
+      );
+      return;
+    }
+
+    if (
+      passwordData.newPassword !==
+      passwordData.confirmPassword
+    ) {
+      setError("New passwords do not match.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setError(
+        "Your session has expired. Please login again."
+      );
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/api/auth/change-password`,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            currentPassword:
+              passwordData.currentPassword,
+
+            newPassword:
+              passwordData.newPassword,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to change password."
+        );
+      }
+
+      setMessage(
+        "Password changed successfully."
+      );
+
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      setShowPasswordModal(false);
+
+      setTimeout(() => {
+        setMessage("");
+      }, 3000);
+    } catch (error) {
+      setError(
+        error.message ||
+          "Unable to change password."
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  /* ================= STYLES ================= */
+
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background: "#f8fafc",
+      padding: "32px",
+      color: "#1e293b",
+      fontFamily:
+        "Arial, Helvetica, sans-serif",
+    },
+
+    topBar: {
+      display: "flex",
+      alignItems: "center",
+      gap: "15px",
+      marginBottom: "28px",
+    },
+
+    backButton: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "10px 15px",
+      borderRadius: "9px",
+      border: "1px solid #cbd5e1",
+      background: "#ffffff",
+      color: "#334155",
+      fontWeight: "600",
+      cursor: "pointer",
+    },
+
+    badge: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "8px",
+      background: "#eff6ff",
+      color: "#2563eb",
+      padding: "7px 12px",
+      borderRadius: "8px",
+      fontSize: "12px",
+      fontWeight: "700",
+      letterSpacing: "0.6px",
+      marginBottom: "12px",
+    },
+
+    title: {
+      fontSize: "34px",
+      fontWeight: "800",
+      margin: "0 0 8px",
+      color: "#0f172a",
+    },
+
+    subtitle: {
+      fontSize: "16px",
+      color: "#64748b",
+      margin: 0,
+      lineHeight: "1.6",
+    },
+
+    section: {
+      marginBottom: "30px",
+    },
+
+    sectionHeader: {
+      display: "flex",
+      alignItems: "center",
+      gap: "15px",
+      marginBottom: "15px",
+    },
+
+    sectionIcon: {
+      width: "48px",
+      height: "48px",
+      borderRadius: "12px",
+      background: "#eff6ff",
+      color: "#2563eb",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "21px",
+      flexShrink: 0,
+    },
+
+    sectionTitle: {
+      margin: "0 0 4px",
+      fontSize: "21px",
+      fontWeight: "750",
+      color: "#0f172a",
+    },
+
+    sectionDescription: {
+      margin: 0,
+      color: "#64748b",
+      fontSize: "14px",
+    },
+
+    card: {
+      background: "#ffffff",
+      border: "1px solid #e2e8f0",
+      borderRadius: "16px",
+      padding: "26px",
+      boxShadow:
+        "0 4px 14px rgba(15, 23, 42, 0.04)",
+    },
+
+    grid: {
+      display: "grid",
+      gridTemplateColumns:
+        "repeat(auto-fit, minmax(280px, 1fr))",
+      gap: "24px",
+    },
+
+    field: {
+      marginBottom: "5px",
+    },
+
+    label: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      fontSize: "14px",
+      fontWeight: "700",
+      color: "#334155",
+      marginBottom: "9px",
+    },
+
+    input: {
+      width: "100%",
+      height: "48px",
+      padding: "0 14px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "9px",
+      outline: "none",
+      fontSize: "15px",
+      color: "#1e293b",
+      background: "#ffffff",
+      boxSizing: "border-box",
+    },
+
+    notificationRow: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "20px",
+    },
+
+    notificationInfo: {
+      display: "flex",
+      alignItems: "center",
+      gap: "15px",
+    },
+
+    notificationIcon: {
+      width: "44px",
+      height: "44px",
+      borderRadius: "10px",
+      background: "#eff6ff",
+      color: "#2563eb",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+
+    notificationTitle: {
+      margin: "0 0 5px",
+      fontSize: "16px",
+      fontWeight: "700",
+      color: "#0f172a",
+    },
+
+    notificationText: {
+      margin: 0,
+      fontSize: "14px",
+      color: "#64748b",
+    },
+
+    divider: {
+      height: "1px",
+      background: "#e2e8f0",
+      margin: "22px 0",
+    },
+
+    toggle: {
+      position: "relative",
+      width: "52px",
+      height: "28px",
+      flexShrink: 0,
+    },
+
+    toggleInput: {
+      opacity: 0,
+      width: 0,
+      height: 0,
+    },
+
+    toggleSlider: (active) => ({
+      position: "absolute",
+      inset: 0,
+      background:
+        active ? "#2563eb" : "#cbd5e1",
+      borderRadius: "30px",
+      cursor: "pointer",
+      transition: "0.25s",
+    }),
+
+    toggleCircle: (active) => ({
+      position: "absolute",
+      width: "22px",
+      height: "22px",
+      left: active ? "27px" : "3px",
+      top: "3px",
+      background: "#ffffff",
+      borderRadius: "50%",
+      transition: "0.25s",
+      boxShadow:
+        "0 2px 5px rgba(0,0,0,0.2)",
+    }),
+
+    securityContent: {
+      display: "flex",
+      alignItems: "center",
+      gap: "18px",
+      flexWrap: "wrap",
+    },
+
+    securityIcon: {
+      width: "52px",
+      height: "52px",
+      borderRadius: "12px",
+      background: "#eff6ff",
+      color: "#2563eb",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "21px",
+    },
+
+    securityText: {
+      flex: 1,
+      minWidth: "250px",
+    },
+
+    securityTitle: {
+      margin: "0 0 5px",
+      fontSize: "17px",
+      color: "#0f172a",
+    },
+
+    securityDescription: {
+      margin: 0,
+      color: "#64748b",
+      fontSize: "14px",
+      lineHeight: "1.6",
+    },
+
+    secondaryButton: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "11px 17px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "9px",
+      background: "#ffffff",
+      color: "#334155",
+      fontWeight: "700",
+      cursor: "pointer",
+    },
+
+    blockchainStatus: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "15px",
+      flexWrap: "wrap",
+      paddingBottom: "22px",
+      marginBottom: "22px",
+      borderBottom:
+        "1px solid #e2e8f0",
+    },
+
+    activeStatus: {
+      display: "flex",
+      alignItems: "center",
+      gap: "9px",
+      color: "#15803d",
+      fontWeight: "700",
+      fontSize: "14px",
+    },
+
+    activeDot: {
+      width: "9px",
+      height: "9px",
+      borderRadius: "50%",
+      background: "#16a34a",
+      boxShadow:
+        "0 0 0 4px #dcfce7",
+    },
+
+    networkBadge: {
+      padding: "7px 12px",
+      background: "#f0fdf4",
+      color: "#15803d",
+      borderRadius: "8px",
+      fontSize: "13px",
+      fontWeight: "700",
+    },
+
+    blockchainGrid: {
+      display: "grid",
+      gridTemplateColumns:
+        "repeat(auto-fit, minmax(260px, 1fr))",
+      gap: "22px",
+    },
+
+    blockchainItem: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "7px",
+    },
+
+    blockchainLabel: {
+      fontSize: "13px",
+      color: "#64748b",
+      fontWeight: "600",
+    },
+
+    blockchainValue: {
+      fontSize: "15px",
+      color: "#1e293b",
+      fontWeight: "700",
+    },
+
+    contract: {
+      fontFamily: "monospace",
+      background: "#f8fafc",
+      padding: "11px 13px",
+      borderRadius: "8px",
+      border: "1px solid #e2e8f0",
+      wordBreak: "break-all",
+    },
+
+    actions: {
+      display: "flex",
+      justifyContent: "flex-end",
+      paddingBottom: "40px",
+    },
+
+    saveButton: {
+      display: "flex",
+      alignItems: "center",
+      gap: "9px",
+      padding: "13px 22px",
+      border: "none",
+      borderRadius: "9px",
+      background: "#2563eb",
+      color: "#ffffff",
+      fontSize: "15px",
+      fontWeight: "700",
+      cursor: "pointer",
+    },
+
+    alert: (type) => ({
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      padding: "15px 18px",
+      borderRadius: "10px",
+      marginBottom: "24px",
+      fontSize: "15px",
+      fontWeight: "600",
+      background:
+        type === "success"
+          ? "#f0fdf4"
+          : "#fef2f2",
+      color:
+        type === "success"
+          ? "#15803d"
+          : "#dc2626",
+      border:
+        type === "success"
+          ? "1px solid #bbf7d0"
+          : "1px solid #fecaca",
+    }),
+
+    alertText: {
+      flex: 1,
+    },
+
+    alertClose: {
+      border: "none",
+      background: "transparent",
+      color: "inherit",
+      cursor: "pointer",
+    },
+
+    overlay: {
+      position: "fixed",
+      inset: 0,
+      background:
+        "rgba(15, 23, 42, 0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "20px",
+      zIndex: 9999,
+    },
+
+    modal: {
+      width: "100%",
+      maxWidth: "520px",
+      background: "#ffffff",
+      borderRadius: "18px",
+      padding: "28px",
+      boxShadow:
+        "0 25px 70px rgba(15, 23, 42, 0.25)",
+      boxSizing: "border-box",
+    },
+
+    modalHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: "20px",
+      marginBottom: "25px",
+    },
+
+    modalIcon: {
+      width: "45px",
+      height: "45px",
+      borderRadius: "11px",
+      background: "#eff6ff",
+      color: "#2563eb",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: "12px",
+    },
+
+    modalTitle: {
+      margin: "0 0 5px",
+      color: "#0f172a",
+      fontSize: "22px",
+    },
+
+    modalDescription: {
+      margin: 0,
+      color: "#64748b",
+      fontSize: "14px",
+    },
+
+    closeButton: {
+      width: "35px",
+      height: "35px",
+      border: "none",
+      background: "#f1f5f9",
+      color: "#64748b",
+      borderRadius: "8px",
+      cursor: "pointer",
+    },
+
+    modalActions: {
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: "12px",
+      marginTop: "8px",
+    },
+
+    cancelButton: {
+      padding: "11px 18px",
+      borderRadius: "8px",
+      fontWeight: "700",
+      cursor: "pointer",
+      background: "#ffffff",
+      border: "1px solid #cbd5e1",
+      color: "#475569",
+    },
+
+    changeButton: {
+      padding: "11px 18px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#2563eb",
+      color: "#ffffff",
+      fontWeight: "700",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+    },
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc"
-      }}
-    >
+    <div style={styles.page}>
 
-      {/* NAVBAR */}
+      {/* ================= TOP ================= */}
 
-      <nav
-        className="bg-white border-bottom"
-        style={{
-          height: "70px"
-        }}
-      >
-        <div
-          className="container-fluid px-4 h-100 d-flex align-items-center justify-content-between"
+      <div style={styles.topBar}>
+        <button
+          style={styles.backButton}
+          onClick={() => navigate("/dashboard")}
         >
+          <FaArrowLeft />
+          Dashboard
+        </button>
+      </div>
 
-          <Link
-            to="/dashboard"
-            className="d-flex align-items-center gap-2"
-            style={{
-              textDecoration: "none"
-            }}
+      {/* ================= HEADER ================= */}
+
+      <div style={{ marginBottom: "30px" }}>
+
+        <div style={styles.badge}>
+          <FaShieldAlt />
+          SYSTEM CONFIGURATION
+        </div>
+
+        <h1 style={styles.title}>
+          Settings
+        </h1>
+
+        <p style={styles.subtitle}>
+          Manage your university profile, notifications,
+          security and blockchain configuration.
+        </p>
+
+      </div>
+
+      {/* ================= ALERTS ================= */}
+
+      {message && (
+        <div style={styles.alert("success")}>
+
+          <FaCheckCircle />
+
+          <span style={styles.alertText}>
+            {message}
+          </span>
+
+          <button
+            style={styles.alertClose}
+            onClick={() => setMessage("")}
           >
-
-            <div
-              className="d-flex align-items-center justify-content-center"
-              style={{
-                width: "40px",
-                height: "40px",
-                background: "#2563eb",
-                borderRadius: "9px",
-                color: "white"
-              }}
-            >
-              <FaShieldAlt />
-            </div>
-
-            <div>
-
-              <div
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a"
-                }}
-              >
-                BCV
-              </div>
-
-              <small style={{ color: "#64748b" }}>
-                University Administration
-              </small>
-
-            </div>
-
-          </Link>
-
-
-          <Link
-            to="/dashboard"
-            style={{
-              color: "#64748b",
-              fontSize: "14px",
-              textDecoration: "none"
-            }}
-          >
-            ← Dashboard
-          </Link>
+            <FaTimes />
+          </button>
 
         </div>
-      </nav>
+      )}
 
+      {error && (
+        <div style={styles.alert("error")}>
 
-      {/* MAIN CONTENT */}
+          <FaTimes />
 
-      <main className="container py-5">
+          <span style={styles.alertText}>
+            {error}
+          </span>
 
-        {/* PAGE HEADER */}
-
-        <div className="mb-4">
-
-          <div
-            style={{
-              color: "#2563eb",
-              fontSize: "13px",
-              fontWeight: "700",
-              marginBottom: "6px"
-            }}
+          <button
+            style={styles.alertClose}
+            onClick={() => setError("")}
           >
-            SYSTEM CONFIGURATION
+            <FaTimes />
+          </button>
+
+        </div>
+      )}
+
+      {/* ================= PROFILE ================= */}
+
+      <section style={styles.section}>
+
+        <div style={styles.sectionHeader}>
+
+          <div style={styles.sectionIcon}>
+            <FaUniversity />
           </div>
 
-          <h2
-            style={{
-              fontWeight: "800",
-              color: "#0f172a",
-              marginBottom: "6px"
-            }}
-          >
-            Settings
-          </h2>
+          <div>
+            <h2 style={styles.sectionTitle}>
+              University Profile
+            </h2>
 
-          <p
-            style={{
-              color: "#64748b",
-              marginBottom: 0
-            }}
-          >
-            Manage university information, administrator preferences,
-            notifications and verification settings.
-          </p>
+            <p style={styles.sectionDescription}>
+              Basic information about the institution
+              and administrator.
+            </p>
+          </div>
 
         </div>
 
+        <div style={styles.card}>
 
-        {/* SUCCESS MESSAGE */}
+          <div style={styles.grid}>
 
-        {saved && (
-          <div
-            className="alert alert-success"
-            style={{
-              borderRadius: "10px",
-              border: "1px solid #bbf7d0"
-            }}
-          >
-            Settings saved successfully.
-          </div>
-        )}
+            <div style={styles.field}>
 
-
-        <form onSubmit={handleSave}>
-
-          {/* UNIVERSITY INFORMATION */}
-
-          <div
-            className="bg-white p-4 p-md-5 mb-4"
-            style={{
-              border: "1px solid #e2e8f0",
-              borderRadius: "14px"
-            }}
-          >
-
-            <div className="d-flex align-items-center gap-3 mb-4">
-
-              <div
-                className="d-flex align-items-center justify-content-center"
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  background: "#dbeafe",
-                  color: "#2563eb",
-                  borderRadius: "10px"
-                }}
-              >
+              <label style={styles.label}>
                 <FaUniversity />
-              </div>
+                University Name
+              </label>
 
-              <div>
-
-                <h5
-                  style={{
-                    fontWeight: "800",
-                    marginBottom: "3px"
-                  }}
-                >
-                  University Information
-                </h5>
-
-                <small style={{ color: "#64748b" }}>
-                  Basic information used for issued credentials.
-                </small>
-
-              </div>
+              <input
+                style={styles.input}
+                type="text"
+                name="universityName"
+                value={settings.universityName}
+                onChange={handleChange}
+                placeholder="Enter university name"
+              />
 
             </div>
 
+            <div style={styles.field}>
 
-            <div className="row g-4">
+              <label style={styles.label}>
+                <FaUser />
+                Administrator Name
+              </label>
 
-              <div className="col-md-6">
+              <input
+                style={styles.input}
+                type="text"
+                name="adminName"
+                value={settings.adminName}
+                onChange={handleChange}
+                placeholder="Enter administrator name"
+              />
 
-                <label
-                  className="form-label"
-                  style={{
-                    fontWeight: "600"
-                  }}
-                >
-                  University Name
-                </label>
+            </div>
 
-                <input
-                  type="text"
-                  name="universityName"
-                  value={settings.universityName}
-                  onChange={handleChange}
-                  className="form-control"
-                />
+            <div style={styles.field}>
 
-              </div>
+              <label style={styles.label}>
+                <FaEnvelope />
+                Administrator Email
+              </label>
 
-
-              <div className="col-md-6">
-
-                <label
-                  className="form-label"
-                  style={{
-                    fontWeight: "600"
-                  }}
-                >
-                  Administrator Name
-                </label>
-
-                <input
-                  type="text"
-                  name="adminName"
-                  value={settings.adminName}
-                  onChange={handleChange}
-                  className="form-control"
-                />
-
-              </div>
-
-
-              <div className="col-md-6">
-
-                <label
-                  className="form-label"
-                  style={{
-                    fontWeight: "600"
-                  }}
-                >
-                  Administrator Email
-                </label>
-
-                <input
-                  type="email"
-                  name="email"
-                  value={settings.email}
-                  onChange={handleChange}
-                  className="form-control"
-                />
-
-              </div>
+              <input
+                style={styles.input}
+                type="email"
+                name="email"
+                value={settings.email}
+                onChange={handleChange}
+                placeholder="admin@university.edu"
+              />
 
             </div>
 
           </div>
 
+        </div>
 
-          {/* SECURITY */}
+      </section>
 
-          <div
-            className="bg-white p-4 p-md-5 mb-4"
-            style={{
-              border: "1px solid #e2e8f0",
-              borderRadius: "14px"
-            }}
-          >
+      {/* ================= NOTIFICATIONS ================= */}
 
-            <div className="d-flex align-items-center gap-3 mb-4">
+      <section style={styles.section}>
 
-              <div
-                className="d-flex align-items-center justify-content-center"
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  background: "#ede9fe",
-                  color: "#7c3aed",
-                  borderRadius: "10px"
-                }}
-              >
-                <FaLock />
-              </div>
+        <div style={styles.sectionHeader}>
 
-              <div>
-
-                <h5
-                  style={{
-                    fontWeight: "800",
-                    marginBottom: "3px"
-                  }}
-                >
-                  Security
-                </h5>
-
-                <small style={{ color: "#64748b" }}>
-                  Security controls for the university administrator.
-                </small>
-
-              </div>
-
-            </div>
-
-
-            <div
-              className="p-3"
-              style={{
-                background: "#f8fafc",
-                borderRadius: "10px"
-              }}
-            >
-
-              <div
-                className="d-flex justify-content-between align-items-center"
-              >
-
-                <div>
-
-                  <div
-                    style={{
-                      fontWeight: "700",
-                      color: "#0f172a"
-                    }}
-                  >
-                    Administrator Password
-                  </div>
-
-                  <small style={{ color: "#64748b" }}>
-                    Change the password used to access the admin panel.
-                  </small>
-
-                </div>
-
-
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  style={{
-                    borderRadius: "8px"
-                  }}
-                >
-                  Change Password
-                </button>
-
-              </div>
-
-            </div>
-
+          <div style={styles.sectionIcon}>
+            <FaBell />
           </div>
 
+          <div>
+            <h2 style={styles.sectionTitle}>
+              Notifications
+            </h2>
 
-          {/* NOTIFICATIONS */}
+            <p style={styles.sectionDescription}>
+              Control the notifications displayed by
+              the system.
+            </p>
+          </div>
 
-          <div
-            className="bg-white p-4 p-md-5 mb-4"
-            style={{
-              border: "1px solid #e2e8f0",
-              borderRadius: "14px"
-            }}
-          >
+        </div>
 
-            <div className="d-flex align-items-center gap-3 mb-4">
+        <div style={styles.card}>
 
-              <div
-                className="d-flex align-items-center justify-content-center"
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  background: "#fef3c7",
-                  color: "#d97706",
-                  borderRadius: "10px"
-                }}
-              >
+          {/* SYSTEM NOTIFICATIONS */}
+
+          <div style={styles.notificationRow}>
+
+            <div style={styles.notificationInfo}>
+
+              <div style={styles.notificationIcon}>
                 <FaBell />
               </div>
 
               <div>
 
-                <h5
-                  style={{
-                    fontWeight: "800",
-                    marginBottom: "3px"
-                  }}
-                >
-                  Notifications
-                </h5>
+                <h3 style={styles.notificationTitle}>
+                  System Notifications
+                </h3>
 
-                <small style={{ color: "#64748b" }}>
-                  Choose which system notifications you want to receive.
-                </small>
+                <p style={styles.notificationText}>
+                  Receive important system and
+                  account notifications.
+                </p>
 
               </div>
 
             </div>
 
-
-            {/* SYSTEM NOTIFICATIONS */}
-
-            <div className="form-check form-switch mb-4">
+            <label style={styles.toggle}>
 
               <input
-                className="form-check-input"
                 type="checkbox"
                 name="notifications"
                 checked={settings.notifications}
                 onChange={handleChange}
-                id="notifications"
+                style={styles.toggleInput}
               />
 
-              <label
-                className="form-check-label"
-                htmlFor="notifications"
+              <span
+                style={styles.toggleSlider(
+                  settings.notifications
+                )}
               >
+                <span
+                  style={styles.toggleCircle(
+                    settings.notifications
+                  )}
+                />
+              </span>
 
-                <strong>
-                  System Notifications
-                </strong>
-
-                <div>
-                  <small style={{ color: "#64748b" }}>
-                    Receive important system notifications.
-                  </small>
-                </div>
-
-              </label>
-
-            </div>
-
-
-            {/* VERIFICATION ALERTS */}
-
-            <div className="form-check form-switch mb-4">
-
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="verificationAlerts"
-                checked={settings.verificationAlerts}
-                onChange={handleChange}
-                id="verificationAlerts"
-              />
-
-              <label
-                className="form-check-label"
-                htmlFor="verificationAlerts"
-              >
-
-                <strong>
-                  Verification Alerts
-                </strong>
-
-                <div>
-                  <small style={{ color: "#64748b" }}>
-                    Receive alerts when credentials are verified.
-                  </small>
-                </div>
-
-              </label>
-
-            </div>
-
-
-            {/* BLOCKCHAIN NOTIFICATIONS */}
-
-            <div className="form-check form-switch">
-
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="blockchainNotifications"
-                checked={settings.blockchainNotifications}
-                onChange={handleChange}
-                id="blockchainNotifications"
-              />
-
-              <label
-                className="form-check-label"
-                htmlFor="blockchainNotifications"
-              >
-
-                <strong>
-                  Blockchain Notifications
-                </strong>
-
-                <div>
-                  <small style={{ color: "#64748b" }}>
-                    Receive updates about blockchain transactions.
-                  </small>
-                </div>
-
-              </label>
-
-            </div>
+            </label>
 
           </div>
 
+          <div style={styles.divider}></div>
 
-          {/* BLOCKCHAIN CONFIGURATION */}
+          {/* VERIFICATION ALERTS */}
 
-          <div
-            className="bg-white p-4 p-md-5 mb-4"
-            style={{
-              border: "1px solid #e2e8f0",
-              borderRadius: "14px"
-            }}
-          >
+          <div style={styles.notificationRow}>
 
-            <div className="d-flex align-items-center gap-3 mb-4">
+            <div style={styles.notificationInfo}>
 
-              <div
-                className="d-flex align-items-center justify-content-center"
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  background: "#dcfce7",
-                  color: "#16a34a",
-                  borderRadius: "10px"
-                }}
-              >
-                <FaDatabase />
+              <div style={styles.notificationIcon}>
+                <FaShieldAlt />
               </div>
 
               <div>
 
-                <h5
-                  style={{
-                    fontWeight: "800",
-                    marginBottom: "3px"
-                  }}
-                >
-                  Blockchain Configuration
-                </h5>
+                <h3 style={styles.notificationTitle}>
+                  Verification Alerts
+                </h3>
 
-                <small style={{ color: "#64748b" }}>
-                  Blockchain network information for credential records.
-                </small>
+                <p style={styles.notificationText}>
+                  Receive alerts related to credential
+                  verification.
+                </p>
 
               </div>
 
             </div>
 
+            <label style={styles.toggle}>
 
-            <div className="row g-4">
+              <input
+                type="checkbox"
+                name="verificationAlerts"
+                checked={settings.verificationAlerts}
+                onChange={handleChange}
+                style={styles.toggleInput}
+              />
 
-              <div className="col-md-6">
-
-                <label
-                  className="form-label"
-                  style={{
-                    fontWeight: "600"
-                  }}
-                >
-                  Network
-                </label>
-
-                <input
-                  type="text"
-                  className="form-control"
-                  value="Local Development Network"
-                  disabled
-                />
-
-              </div>
-
-
-              <div className="col-md-6">
-
-                <label
-                  className="form-label"
-                  style={{
-                    fontWeight: "600"
-                  }}
-                >
-                  Verification Method
-                </label>
-
-                <input
-                  type="text"
-                  className="form-control"
-                  value="SHA-256 Hash + Blockchain Record"
-                  disabled
-                />
-
-              </div>
-
-            </div>
-
-
-            <div
-              className="mt-4 p-3"
-              style={{
-                background: "#f0fdf4",
-                border: "1px solid #bbf7d0",
-                borderRadius: "10px"
-              }}
-            >
-
-              <div
-                style={{
-                  color: "#166534",
-                  fontWeight: "700"
-                }}
+              <span
+                style={styles.toggleSlider(
+                  settings.verificationAlerts
+                )}
               >
-                Blockchain Integration Status
-              </div>
+                <span
+                  style={styles.toggleCircle(
+                    settings.verificationAlerts
+                  )}
+                />
+              </span>
 
-              <small
-                style={{
-                  color: "#15803d"
-                }}
-              >
-                Configuration will be connected to the blockchain
-                service during backend integration.
-              </small>
-
-            </div>
+            </label>
 
           </div>
 
+          <div style={styles.divider}></div>
 
-          {/* SAVE BUTTON */}
+          {/* BLOCKCHAIN NOTIFICATIONS */}
 
-          <div className="d-flex justify-content-end">
+          <div style={styles.notificationRow}>
+
+            <div style={styles.notificationInfo}>
+
+              <div style={styles.notificationIcon}>
+                <FaCube />
+              </div>
+
+              <div>
+
+                <h3 style={styles.notificationTitle}>
+                  Blockchain Notifications
+                </h3>
+
+                <p style={styles.notificationText}>
+                  Receive notifications about blockchain
+                  transactions.
+                </p>
+
+              </div>
+
+            </div>
+
+            <label style={styles.toggle}>
+
+              <input
+                type="checkbox"
+                name="blockchainNotifications"
+                checked={
+                  settings.blockchainNotifications
+                }
+                onChange={handleChange}
+                style={styles.toggleInput}
+              />
+
+              <span
+                style={styles.toggleSlider(
+                  settings.blockchainNotifications
+                )}
+              >
+                <span
+                  style={styles.toggleCircle(
+                    settings.blockchainNotifications
+                  )}
+                />
+              </span>
+
+            </label>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ================= SECURITY ================= */}
+
+      <section style={styles.section}>
+
+        <div style={styles.sectionHeader}>
+
+          <div style={styles.sectionIcon}>
+            <FaLock />
+          </div>
+
+          <div>
+
+            <h2 style={styles.sectionTitle}>
+              Security
+            </h2>
+
+            <p style={styles.sectionDescription}>
+              Manage your account security and
+              authentication settings.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div style={styles.card}>
+
+          <div style={styles.securityContent}>
+
+            <div style={styles.securityIcon}>
+              <FaKey />
+            </div>
+
+            <div style={styles.securityText}>
+
+              <h3 style={styles.securityTitle}>
+                Account Password
+              </h3>
+
+              <p style={styles.securityDescription}>
+                Change your administrator account
+                password regularly to keep your
+                account secure.
+              </p>
+
+            </div>
 
             <button
-              type="submit"
-              className="btn px-4 py-3"
-              style={{
-                background: "#2563eb",
-                color: "white",
-                borderRadius: "8px",
-                fontWeight: "600"
+              style={styles.secondaryButton}
+              onClick={() => {
+                setError("");
+                setMessage("");
+                setShowPasswordModal(true);
               }}
             >
-
-              <FaSave className="me-2" />
-
-              Save Settings
-
+              <FaLock />
+              Change Password
             </button>
 
           </div>
 
-        </form>
+        </div>
 
-      </main>
+      </section>
+
+      {/* ================= BLOCKCHAIN ================= */}
+
+      <section style={styles.section}>
+
+        <div style={styles.sectionHeader}>
+
+          <div
+            style={{
+              ...styles.sectionIcon,
+              background: "#f0fdf4",
+              color: "#16a34a",
+            }}
+          >
+            <FaCube />
+          </div>
+
+          <div>
+
+            <h2 style={styles.sectionTitle}>
+              Blockchain Configuration
+            </h2>
+
+            <p style={styles.sectionDescription}>
+              Current blockchain network and credential
+              verification configuration.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div style={styles.card}>
+
+          <div style={styles.blockchainStatus}>
+
+            <div style={styles.activeStatus}>
+
+              <span style={styles.activeDot}></span>
+
+              Blockchain Integration Active
+
+            </div>
+
+            <span style={styles.networkBadge}>
+              Polygon Amoy Testnet
+            </span>
+
+          </div>
+
+          <div style={styles.blockchainGrid}>
+
+            <div style={styles.blockchainItem}>
+
+              <span style={styles.blockchainLabel}>
+                Network
+              </span>
+
+              <strong style={styles.blockchainValue}>
+                Polygon Amoy Testnet
+              </strong>
+
+            </div>
+
+            <div style={styles.blockchainItem}>
+
+              <span style={styles.blockchainLabel}>
+                Chain ID
+              </span>
+
+              <strong style={styles.blockchainValue}>
+                80002
+              </strong>
+
+            </div>
+
+            <div style={styles.blockchainItem}>
+
+              <span style={styles.blockchainLabel}>
+                Smart Contract Address
+              </span>
+
+              <strong
+                style={{
+                  ...styles.blockchainValue,
+                  ...styles.contract,
+                }}
+              >
+                0xD2974C62B715f3871F9C7dDED1d1fE8A43F11DD8
+              </strong>
+
+            </div>
+
+            <div style={styles.blockchainItem}>
+
+              <span style={styles.blockchainLabel}>
+                Verification Method
+              </span>
+
+              <strong style={styles.blockchainValue}>
+                SHA-256 Hash + Blockchain Record
+              </strong>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ================= SAVE ================= */}
+
+      <div style={styles.actions}>
+
+        <button
+          style={styles.saveButton}
+          onClick={handleSaveSettings}
+        >
+          <FaSave />
+          Save Settings
+        </button>
+
+      </div>
+
+      {/* ================= PASSWORD MODAL ================= */}
+
+      {showPasswordModal && (
+
+        <div
+          style={styles.overlay}
+          onClick={() =>
+            setShowPasswordModal(false)
+          }
+        >
+
+          <div
+            style={styles.modal}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            <div style={styles.modalHeader}>
+
+              <div>
+
+                <div style={styles.modalIcon}>
+                  <FaLock />
+                </div>
+
+                <h2 style={styles.modalTitle}>
+                  Change Password
+                </h2>
+
+                <p style={styles.modalDescription}>
+                  Update your administrator account
+                  password.
+                </p>
+
+              </div>
+
+              <button
+                style={styles.closeButton}
+                onClick={() =>
+                  setShowPasswordModal(false)
+                }
+              >
+                <FaTimes />
+              </button>
+
+            </div>
+
+            <form onSubmit={handleChangePassword}>
+
+              <div style={styles.field}>
+
+                <label style={styles.label}>
+                  <FaLock />
+                  Current Password
+                </label>
+
+                <input
+                  style={styles.input}
+                  type="password"
+                  name="currentPassword"
+                  value={
+                    passwordData.currentPassword
+                  }
+                  onChange={
+                    handlePasswordChange
+                  }
+                  placeholder="Enter current password"
+                />
+
+              </div>
+
+              <div style={styles.field}>
+
+                <label style={styles.label}>
+                  <FaKey />
+                  New Password
+                </label>
+
+                <input
+                  style={styles.input}
+                  type="password"
+                  name="newPassword"
+                  value={
+                    passwordData.newPassword
+                  }
+                  onChange={
+                    handlePasswordChange
+                  }
+                  placeholder="Enter new password"
+                />
+
+              </div>
+
+              <div style={styles.field}>
+
+                <label style={styles.label}>
+                  <FaKey />
+                  Confirm New Password
+                </label>
+
+                <input
+                  style={styles.input}
+                  type="password"
+                  name="confirmPassword"
+                  value={
+                    passwordData.confirmPassword
+                  }
+                  onChange={
+                    handlePasswordChange
+                  }
+                  placeholder="Confirm new password"
+                />
+
+              </div>
+
+              <div style={styles.modalActions}>
+
+                <button
+                  type="button"
+                  style={styles.cancelButton}
+                  onClick={() =>
+                    setShowPasswordModal(false)
+                  }
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  style={styles.changeButton}
+                  disabled={passwordLoading}
+                >
+                  <FaLock />
+
+                  {passwordLoading
+                    ? "Changing..."
+                    : "Change Password"}
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+
+      )}
 
     </div>
   );

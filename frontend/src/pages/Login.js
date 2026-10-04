@@ -1,297 +1,402 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaShieldAlt, FaLock, FaEnvelope } from "react-icons/fa";
+import {
+  FaShieldAlt,
+  FaLock,
+  FaEnvelope,
+  FaEye,
+  FaEyeSlash,
+  FaArrowLeft,
+  FaCheckCircle,
+  FaUniversity,
+  FaFingerprint,
+  FaLink,
+} from "react-icons/fa";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Temporary login for frontend development
-    if (email && password) {
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        "https://blockchain-credential-verification-murt.onrender.com/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Invalid email or password");
+        setLoading(false);
+        return;
+      }
+
+      // Store authentication token
+      localStorage.setItem("token", data.token);
+
+      // Store logged-in user information
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Redirect to dashboard
       navigate("/dashboard");
+    } catch (error) {
+      console.error("Login Error:", error);
+      alert("Unable to connect to the server");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc"
-      }}
-    >
+    <div className="login-page">
 
-      {/* Top Brand */}
-      <div className="container py-4">
-
-        <Link
-          to="/"
-          className="d-flex align-items-center gap-2"
-          style={{
-            width: "fit-content"
-          }}
-        >
-
-          <div
-            className="d-flex align-items-center justify-content-center"
-            style={{
-              width: "42px",
-              height: "42px",
-              background: "#2563eb",
-              borderRadius: "10px",
-              color: "white"
-            }}
-          >
-            <FaShieldAlt size={22} />
-          </div>
-
-          <div>
-
-            <div
-              style={{
-                fontWeight: "800",
-                fontSize: "18px",
-                color: "#0f172a",
-                lineHeight: "1.1"
-              }}
-            >
-              BCV
+      {/* =========================
+          TOP BRAND
+      ========================== */}
+      <div className="login-topbar">
+        <div className="container">
+          <Link to="/" className="login-brand">
+            <div className="login-brand-icon">
+              <FaShieldAlt />
             </div>
 
-            <div
-              style={{
-                fontSize: "10px",
-                color: "#64748b",
-                letterSpacing: "0.5px"
-              }}
-            >
-              BLOCKCHAIN CREDENTIALS
+            <div>
+              <div className="login-brand-title">BCV</div>
+              <div className="login-brand-subtitle">
+                BLOCKCHAIN CREDENTIAL VERIFICATION
+              </div>
             </div>
-
-          </div>
-
-        </Link>
-
+          </Link>
+        </div>
       </div>
 
-      {/* Login Section */}
+
+      {/* =========================
+          MAIN LOGIN SECTION
+      ========================== */}
       <div className="container">
+        <div className="row justify-content-center align-items-center login-main-row">
 
-        <div
-          className="row justify-content-center align-items-center"
-          style={{
-            minHeight: "80vh"
-          }}
-        >
+          <div className="col-xl-10 col-lg-11">
 
-          <div className="col-md-6 col-lg-4">
+            <div className="login-container">
 
-            <div
-              className="bg-white p-4 p-md-5 shadow-sm"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "16px"
-              }}
-            >
+              {/* =========================
+                  LEFT BRANDING PANEL
+              ========================== */}
+              <div className="login-brand-panel">
 
-              {/* Heading */}
+                <div className="login-brand-panel-content">
 
-              <div className="text-center mb-4">
+                  <div className="login-panel-badge">
+                    <FaUniversity />
+                    <span>UNIVERSITY ADMIN PORTAL</span>
+                  </div>
 
-                <div
-                  className="mx-auto mb-3 d-flex align-items-center justify-content-center"
-                  style={{
-                    width: "58px",
-                    height: "58px",
-                    background: "#dbeafe",
-                    color: "#2563eb",
-                    borderRadius: "14px"
-                  }}
-                >
-                  <FaLock size={23} />
-                </div>
+                  <h1>
+                    Secure Academic
+                    <span> Credential Management.</span>
+                  </h1>
 
-                <h2
-                  style={{
-                    fontWeight: "800",
-                    color: "#0f172a",
-                    marginBottom: "8px"
-                  }}
-                >
-                  University Login
-                </h2>
+                  <p className="login-panel-description">
+                    Manage, issue and verify academic credentials through a
+                    secure blockchain-powered verification platform.
+                  </p>
 
-                <p
-                  style={{
-                    color: "#64748b",
-                    marginBottom: 0,
-                    fontSize: "14px"
-                  }}
-                >
-                  Sign in to manage academic credentials
-                </p>
 
-              </div>
+                  {/* Security Features */}
+                  <div className="login-security-list">
 
-              {/* Form */}
+                    <div className="login-security-item">
+                      <div className="login-security-icon">
+                        <FaShieldAlt />
+                      </div>
 
-              <form onSubmit={handleLogin}>
+                      <div>
+                        <strong>Blockchain Security</strong>
+                        <span>
+                          Credential records secured through Polygon blockchain
+                        </span>
+                      </div>
+                    </div>
 
-                {/* Email */}
 
-                <div className="mb-3">
+                    <div className="login-security-item">
+                      <div className="login-security-icon">
+                        <FaFingerprint />
+                      </div>
 
-                  <label
-                    className="form-label"
-                    style={{
-                      fontWeight: "600",
-                      fontSize: "14px"
-                    }}
-                  >
-                    University Email
-                  </label>
+                      <div>
+                        <strong>SHA-256 Integrity</strong>
+                        <span>
+                          Detect unauthorized credential modifications
+                        </span>
+                      </div>
+                    </div>
 
-                  <div className="position-relative">
 
-                    <FaEnvelope
-                      style={{
-                        position: "absolute",
-                        left: "14px",
-                        top: "15px",
-                        color: "#94a3b8"
-                      }}
-                    />
+                    <div className="login-security-item">
+                      <div className="login-security-icon">
+                        <FaLink />
+                      </div>
 
-                    <input
-                      type="email"
-                      className="form-control"
-                      placeholder="admin@university.edu"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      style={{
-                        paddingLeft: "42px",
-                        height: "48px",
-                        borderRadius: "8px"
-                      }}
-                      required
-                    />
+                      <div>
+                        <strong>Instant Verification</strong>
+                        <span>
+                          Verify academic credentials using a unique ID or QR
+                        </span>
+                      </div>
+                    </div>
 
                   </div>
 
-                </div>
 
-                {/* Password */}
-
-                <div className="mb-4">
-
-                  <div className="d-flex justify-content-between">
-
-                    <label
-                      className="form-label"
-                      style={{
-                        fontWeight: "600",
-                        fontSize: "14px"
-                      }}
-                    >
-                      Password
-                    </label>
-
-                    <span
-                      style={{
-                        fontSize: "13px",
-                        color: "#2563eb",
-                        cursor: "pointer"
-                      }}
-                    >
-                      Forgot password?
+                  {/* Trust Footer */}
+                  <div className="login-panel-footer">
+                    <div className="login-panel-footer-dot"></div>
+                    <span>
+                      Secure • Tamper-resistant • Verifiable
                     </span>
-
-                  </div>
-
-                  <div className="position-relative">
-
-                    <FaLock
-                      style={{
-                        position: "absolute",
-                        left: "14px",
-                        top: "15px",
-                        color: "#94a3b8"
-                      }}
-                    />
-
-                    <input
-                      type="password"
-                      className="form-control"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      style={{
-                        paddingLeft: "42px",
-                        height: "48px",
-                        borderRadius: "8px"
-                      }}
-                      required
-                    />
-
                   </div>
 
                 </div>
-
-                {/* Login Button */}
-
-                <button
-                  type="submit"
-                  className="btn w-100 py-3"
-                  style={{
-                    background: "#2563eb",
-                    color: "white",
-                    borderRadius: "8px",
-                    fontWeight: "600"
-                  }}
-                >
-                  Sign In
-                </button>
-
-              </form>
-
-              {/* Security message */}
-
-              <div
-                className="mt-4 p-3"
-                style={{
-                  background: "#f8fafc",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  color: "#64748b",
-                  textAlign: "center"
-                }}
-              >
-                🔐 Secure access for authorized university administrators
               </div>
 
-            </div>
 
-            <div className="text-center mt-3">
+              {/* =========================
+                  RIGHT LOGIN PANEL
+              ========================== */}
+              <div className="login-form-panel">
 
-              <Link
-                to="/"
-                style={{
-                  color: "#64748b",
-                  fontSize: "14px"
-                }}
-              >
-                ← Back to Home
-              </Link>
+                <div className="login-form-wrapper">
+
+                  {/* Login Heading */}
+                  <div className="login-heading">
+
+                    <div className="login-heading-icon">
+                      <FaLock />
+                    </div>
+
+                    <div className="login-heading-text">
+
+                      <span className="login-small-title">
+                        AUTHORIZED ACCESS
+                      </span>
+
+                      <h2>Welcome back</h2>
+
+                      <p>
+                        Sign in to access your university dashboard.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* Login Form */}
+                  <form onSubmit={handleLogin}>
+
+                    {/* Email */}
+                    <div className="login-form-group">
+
+                      <label htmlFor="email">
+                        University Email
+                      </label>
+
+                      <div className="login-input-wrapper">
+
+                        <FaEnvelope className="login-input-icon" />
+
+                        <input
+                          id="email"
+                          type="email"
+                          className="login-input"
+                          placeholder="admin@university.edu"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                        />
+
+                      </div>
+
+                    </div>
+
+
+                    {/* Password */}
+                    <div className="login-form-group">
+
+                      <div className="login-label-row">
+
+                        <label htmlFor="password">
+                          Password
+                        </label>
+
+                        <span className="login-forgot">
+                          Forgot password?
+                        </span>
+
+                      </div>
+
+
+                      <div className="login-input-wrapper">
+
+                        <FaLock className="login-input-icon" />
+
+                        <input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          className="login-input login-password-input"
+                          placeholder="Enter your password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                        />
+
+
+                        <button
+                          type="button"
+                          className="login-password-toggle"
+                          onClick={() =>
+                            setShowPassword(!showPassword)
+                          }
+                          aria-label={
+                            showPassword
+                              ? "Hide password"
+                              : "Show password"
+                          }
+                        >
+                          {showPassword ? (
+                            <FaEyeSlash />
+                          ) : (
+                            <FaEye />
+                          )}
+                        </button>
+
+                      </div>
+
+                    </div>
+
+
+                    {/* Remember / Secure Access */}
+                    <div className="login-options">
+
+                      <label className="login-checkbox">
+
+                        <input type="checkbox" />
+
+                        <span>
+                          Keep me signed in
+                        </span>
+
+                      </label>
+
+                      <span className="login-secure-label">
+                        <FaShieldAlt />
+                        Secure connection
+                      </span>
+
+                    </div>
+
+
+                    {/* Login Button */}
+                    <button
+                      type="submit"
+                      className="login-submit-button"
+                      disabled={loading}
+                    >
+
+                      {loading ? (
+                        <>
+                          <span className="login-spinner"></span>
+                          Signing in...
+                        </>
+                      ) : (
+                        <>
+                          <FaLock />
+                          Sign In Securely
+                        </>
+                      )}
+
+                    </button>
+
+                  </form>
+
+
+                  {/* Security Notice */}
+                  <div className="login-security-notice">
+
+                    <div className="login-notice-icon">
+                      <FaCheckCircle />
+                    </div>
+
+                    <div>
+                      <strong>Protected administrator access</strong>
+
+                      <p>
+                        Your session is authenticated using secure
+                        token-based authorization.
+                      </p>
+                    </div>
+
+                  </div>
+
+
+                  {/* Back to Home */}
+                  <Link
+                    to="/"
+                    className="login-back-home"
+                  >
+                    <FaArrowLeft />
+                    Back to Credential Verification
+                  </Link>
+
+                </div>
+
+              </div>
 
             </div>
 
           </div>
 
         </div>
+      </div>
+
+
+      {/* =========================
+          FOOTER
+      ========================== */}
+      <div className="login-footer">
+
+        <span>
+          © 2026 Blockchain Credential Verification
+        </span>
+
+        <span className="login-footer-divider">
+          |
+        </span>
+
+        <span>
+          Secure Academic Credential Management
+        </span>
 
       </div>
 

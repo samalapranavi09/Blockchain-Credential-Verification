@@ -1,161 +1,303 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FaShieldAlt,
   FaSearch,
   FaCertificate,
   FaCheckCircle,
-  FaEye
+  FaClock,
+  FaEye,
+  FaPlus,
+  FaArrowLeft,
+  FaUniversity,
+  FaLink,
+  FaExclamationCircle,
+  FaSyncAlt
 } from "react-icons/fa";
 
-function History() {
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "https://blockchain-credential-verification-murt.onrender.com";
 
+function History() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All Status");
 
-  const credentials = [
-    {
-      id: "BCV-2026-001",
-      student: "Rahul Sharma",
-      studentId: "STU001",
-      degree: "B.Tech",
-      department: "Computer Science",
-      issueDate: "12 Aug 2026",
-      status: "Verified",
-      blockchain: "Confirmed"
-    },
-    {
-      id: "BCV-2026-002",
-      student: "Priya Reddy",
-      studentId: "STU002",
-      degree: "B.Tech",
-      department: "Electronics",
-      issueDate: "10 Aug 2026",
-      status: "Verified",
-      blockchain: "Confirmed"
-    },
-    {
-      id: "BCV-2026-003",
-      student: "Arjun Kumar",
-      studentId: "STU003",
-      degree: "B.Tech",
-      department: "Mechanical",
-      issueDate: "08 Aug 2026",
-      status: "Pending",
-      blockchain: "Pending"
-    },
-    {
-      id: "BCV-2026-004",
-      student: "Sneha Patel",
-      studentId: "STU004",
-      degree: "B.Tech",
-      department: "Computer Science",
-      issueDate: "05 Aug 2026",
-      status: "Verified",
-      blockchain: "Confirmed"
-    },
-    {
-      id: "BCV-2026-005",
-      student: "Vikram Rao",
-      studentId: "STU005",
-      degree: "B.Tech",
-      department: "Information Technology",
-      issueDate: "02 Aug 2026",
-      status: "Issued",
-      blockchain: "Confirmed"
-    }
-  ];
+  const [credentials, setCredentials] = useState([]);
 
-  const filteredCredentials = credentials.filter((credential) => {
-
-    const matchesSearch =
-      credential.id.toLowerCase().includes(search.toLowerCase()) ||
-      credential.student.toLowerCase().includes(search.toLowerCase()) ||
-      credential.studentId.toLowerCase().includes(search.toLowerCase());
-
-    const matchesStatus =
-      status === "All Status" ||
-      credential.status === status;
-
-    return matchesSearch && matchesStatus;
+  const [stats, setStats] = useState({
+    totalCredentials: 0,
+    confirmedOnBlockchain: 0,
+    pendingBlockchain: 0
   });
 
-  const getStatusStyle = (value) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    if (value === "Verified" || value === "Confirmed") {
-      return {
-        background: "#dcfce7",
-        color: "#15803d"
-      };
+  /* =====================================================
+     FETCH HISTORY
+     ===================================================== */
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setError("Please login again.");
+        setLoading(false);
+        return;
+      }
+
+      /* =================================================
+         FETCH CREDENTIALS
+         ================================================= */
+
+      const credentialsResponse = await fetch(
+        `${API_URL}/api/credentials`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!credentialsResponse.ok) {
+        if (credentialsResponse.status === 401) {
+          throw new Error(
+            "Your session has expired. Please login again."
+          );
+        }
+
+        throw new Error(
+          "Failed to load credentials."
+        );
+      }
+
+      const credentialsData =
+        await credentialsResponse.json();
+
+      const rawCredentials =
+        credentialsData.credentials ||
+        credentialsData.data ||
+        [];
+
+      const credentialList =
+        Array.isArray(rawCredentials)
+          ? rawCredentials
+          : [];
+
+      setCredentials(credentialList);
+
+      /* =================================================
+         FETCH STATISTICS
+         ================================================= */
+
+      try {
+        const statsResponse = await fetch(
+          `${API_URL}/api/credentials/stats`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (statsResponse.ok) {
+          const statsData =
+            await statsResponse.json();
+
+          const backendStats =
+            statsData.stats ||
+            statsData.data ||
+            statsData;
+
+          setStats({
+            totalCredentials:
+              backendStats.totalCredentials ??
+              credentialList.length,
+
+            confirmedOnBlockchain:
+              backendStats.confirmedOnBlockchain ??
+              0,
+
+            pendingBlockchain:
+              backendStats.pendingBlockchain ??
+              0
+          });
+        } else {
+          setStats({
+            totalCredentials: credentialList.length,
+            confirmedOnBlockchain: 0,
+            pendingBlockchain: 0
+          });
+        }
+      } catch (statsError) {
+        console.error(
+          "Statistics Error:",
+          statsError
+        );
+
+        setStats((previous) => ({
+          ...previous,
+          totalCredentials:
+            credentialList.length
+        }));
+      }
+    } catch (err) {
+      console.error(
+        "History Error:",
+        err
+      );
+
+      setError(
+        err.message ||
+        "Unable to load certificate history."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    if (value === "Pending") {
-      return {
-        background: "#fef3c7",
-        color: "#b45309"
-      };
-    }
-
-    return {
-      background: "#dbeafe",
-      color: "#1d4ed8"
-    };
   };
 
+  /* =====================================================
+     DATE FORMAT
+     ===================================================== */
+
+  const formatDate = (date) => {
+    if (!date) {
+      return "Not available";
+    }
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "Not available";
+    }
+
+    return parsedDate.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }
+    );
+  };
+
+  /* =====================================================
+     STATUS CLASS
+     ===================================================== */
+
+  const getCredentialStatusClass = (value) => {
+    if (
+      value === "Valid" ||
+      value === "Verified" ||
+      value === "Confirmed"
+    ) {
+      return "history-status history-status-success";
+    }
+
+    if (
+      value === "Pending" ||
+      value === "Issued"
+    ) {
+      return "history-status history-status-pending";
+    }
+
+    if (value === "Revoked") {
+      return "history-status history-status-danger";
+    }
+
+    return "history-status history-status-info";
+  };
+
+  /* =====================================================
+     FILTER CREDENTIALS
+     ===================================================== */
+
+  const filteredCredentials =
+    credentials.filter((credential) => {
+      const credentialId =
+        String(
+          credential.credentialId || ""
+        ).toLowerCase();
+
+      const studentName =
+        String(
+          credential.studentName || ""
+        ).toLowerCase();
+
+      const rollNumber =
+        String(
+          credential.rollNumber || ""
+        ).toLowerCase();
+
+      const institution =
+        String(
+          credential.institution || ""
+        ).toLowerCase();
+
+      const searchText =
+        search.toLowerCase().trim();
+
+      const matchesSearch =
+        credentialId.includes(searchText) ||
+        studentName.includes(searchText) ||
+        rollNumber.includes(searchText) ||
+        institution.includes(searchText);
+
+      const credentialStatus =
+        credential.status || "Valid";
+
+      const matchesStatus =
+        status === "All Status" ||
+        credentialStatus === status;
+
+      return (
+        matchesSearch &&
+        matchesStatus
+      );
+    });
+
+  /* =====================================================
+     RENDER
+     ===================================================== */
+
   return (
+    <div className="history-page">
 
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc"
-      }}
-    >
+      {/* =================================================
+          NAVBAR
+          ================================================= */}
 
-      {/* NAVBAR */}
+      <nav className="history-navbar">
 
-      <nav
-        className="bg-white border-bottom"
-        style={{
-          height: "70px"
-        }}
-      >
-
-        <div
-          className="container-fluid px-4 h-100 d-flex align-items-center justify-content-between"
-        >
+        <div className="history-navbar-inner">
 
           <Link
             to="/dashboard"
-            className="d-flex align-items-center gap-2"
+            className="history-brand"
           >
 
-            <div
-              className="d-flex align-items-center justify-content-center"
-              style={{
-                width: "40px",
-                height: "40px",
-                background: "#2563eb",
-                borderRadius: "9px",
-                color: "white"
-              }}
-            >
+            <div className="history-brand-icon">
               <FaShieldAlt />
             </div>
 
             <div>
 
-              <div
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a"
-                }}
-              >
+              <div className="history-brand-title">
                 BCV
               </div>
 
-              <small style={{ color: "#64748b" }}>
+              <div className="history-brand-subtitle">
                 University Administration
-              </small>
+              </div>
 
             </div>
 
@@ -163,12 +305,12 @@ function History() {
 
           <Link
             to="/dashboard"
-            style={{
-              color: "#64748b",
-              fontSize: "14px"
-            }}
+            className="history-back-link"
           >
-            ← Dashboard
+            <FaArrowLeft />
+            <span>
+              Back to Dashboard
+            </span>
           </Link>
 
         </div>
@@ -176,294 +318,279 @@ function History() {
       </nav>
 
 
-      {/* MAIN CONTENT */}
+      {/* =================================================
+          MAIN
+          ================================================= */}
 
-      <main className="container-fluid px-4 py-4">
+      <main className="history-main">
 
-        {/* HEADER */}
+        {/* =================================================
+            PAGE HEADER
+            ================================================= */}
 
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <section className="history-page-header">
 
           <div>
 
-            <h2
-              style={{
-                fontWeight: "800",
-                color: "#0f172a",
-                marginBottom: "6px"
-              }}
-            >
-              Certificate History
-            </h2>
+            <div className="history-eyebrow">
 
-            <p
-              style={{
-                color: "#64748b",
-                marginBottom: 0
-              }}
-            >
-              View and manage previously issued academic credentials.
+              <FaCertificate />
+
+              Credential Management
+
+            </div>
+
+            <h1>
+              Certificate History
+            </h1>
+
+            <p>
+              View, search and verify previously issued
+              academic credentials.
             </p>
 
           </div>
 
+          {/* FIXED ROUTE */}
+
           <Link
             to="/issue"
-            className="btn px-4 py-2"
-            style={{
-              background: "#2563eb",
-              color: "white",
-              borderRadius: "8px",
-              fontWeight: "600"
-            }}
+            className="history-primary-button"
           >
-            + Issue Credential
+
+            <FaPlus />
+
+            Issue Credential
+
           </Link>
 
-        </div>
+        </section>
 
 
-        {/* SUMMARY CARDS */}
+        {/* =================================================
+            ERROR
+            ================================================= */}
 
-        <div className="row g-4 mb-4">
+        {error && (
+          <div className="history-error">
 
-          <div className="col-md-4">
+            <FaExclamationCircle />
 
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
+            <div>
+
+              <strong>
+                Unable to load history
+              </strong>
+
+              <p>
+                {error}
+              </p>
+
+            </div>
+
+            <button
+              type="button"
+              className="history-retry-button"
+              onClick={fetchHistory}
             >
 
-              <small style={{ color: "#64748b" }}>
+              <FaSyncAlt />
+
+              Retry
+
+            </button>
+
+          </div>
+        )}
+
+
+        {/* =================================================
+            STATISTICS
+            ================================================= */}
+
+        <section className="history-stats-grid">
+
+          {/* TOTAL */}
+
+          <div className="history-stat-card">
+
+            <div className="history-stat-content">
+
+              <span className="history-stat-label">
                 Total Credentials
-              </small>
+              </span>
 
-              <div
-                className="d-flex justify-content-between align-items-center mt-2"
-              >
+              <strong className="history-stat-number">
+                {loading
+                  ? "—"
+                  : stats.totalCredentials}
+              </strong>
 
-                <h3
-                  style={{
-                    fontWeight: "800",
-                    margin: 0
-                  }}
-                >
-                  184
-                </h3>
+              <span className="history-stat-description">
+                Academic credentials issued
+              </span>
 
-                <FaCertificate
-                  size={22}
-                  style={{
-                    color: "#2563eb"
-                  }}
-                />
+            </div>
 
-              </div>
-
+            <div className="history-stat-icon blue">
+              <FaCertificate />
             </div>
 
           </div>
 
 
-          <div className="col-md-4">
+          {/* CONFIRMED */}
 
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
+          <div className="history-stat-card">
 
-              <small style={{ color: "#64748b" }}>
+            <div className="history-stat-content">
+
+              <span className="history-stat-label">
                 Blockchain Confirmed
-              </small>
+              </span>
 
-              <div
-                className="d-flex justify-content-between align-items-center mt-2"
-              >
+              <strong className="history-stat-number">
+                {loading
+                  ? "—"
+                  : stats.confirmedOnBlockchain}
+              </strong>
 
-                <h3
-                  style={{
-                    fontWeight: "800",
-                    margin: 0
-                  }}
-                >
-                  176
-                </h3>
+              <span className="history-stat-description">
+                Credentials recorded on-chain
+              </span>
 
-                <FaCheckCircle
-                  size={22}
-                  style={{
-                    color: "#16a34a"
-                  }}
-                />
+            </div>
 
-              </div>
-
+            <div className="history-stat-icon green">
+              <FaCheckCircle />
             </div>
 
           </div>
 
 
-          <div className="col-md-4">
+          {/* PENDING */}
 
-            <div
-              className="bg-white p-4"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px"
-              }}
-            >
+          <div className="history-stat-card">
 
-              <small style={{ color: "#64748b" }}>
+            <div className="history-stat-content">
+
+              <span className="history-stat-label">
                 Pending
-              </small>
+              </span>
 
-              <div
-                className="d-flex justify-content-between align-items-center mt-2"
-              >
+              <strong className="history-stat-number">
+                {loading
+                  ? "—"
+                  : stats.pendingBlockchain}
+              </strong>
 
-                <h3
-                  style={{
-                    fontWeight: "800",
-                    margin: 0
-                  }}
-                >
-                  8
-                </h3>
+              <span className="history-stat-description">
+                Awaiting blockchain confirmation
+              </span>
 
-                <span
-                  style={{
-                    background: "#fef3c7",
-                    color: "#b45309",
-                    borderRadius: "50%",
-                    width: "30px",
-                    height: "30px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: "700"
-                  }}
-                >
-                  !
-                </span>
+            </div>
 
-              </div>
-
+            <div className="history-stat-icon amber">
+              <FaClock />
             </div>
 
           </div>
 
-        </div>
+        </section>
 
 
-        {/* TABLE */}
+        {/* =================================================
+            TABLE CARD
+            ================================================= */}
 
-        <div
-          className="bg-white"
-          style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: "12px",
-            overflow: "hidden"
-          }}
-        >
+        <section className="history-table-card">
 
-          {/* FILTER AREA */}
+          {/* TABLE HEADER */}
 
-          <div className="p-4 border-bottom">
+          <div className="history-table-header">
 
-            <div className="row g-3 align-items-center">
+            <div>
 
-              <div className="col-lg-7">
+              <h2>
+                Issued Credentials
+              </h2>
 
-                <div className="position-relative">
+              <p>
+                Search, filter and verify academic credentials.
+              </p>
 
-                  <FaSearch
-                    style={{
-                      position: "absolute",
-                      left: "15px",
-                      top: "14px",
-                      color: "#94a3b8"
-                    }}
-                  />
+            </div>
 
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Search by credential ID, student name or student ID..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{
-                      paddingLeft: "42px",
-                      height: "46px",
-                      borderRadius: "8px"
-                    }}
-                  />
+            <div className="history-record-count">
 
-                </div>
-
-              </div>
-
-
-              <div className="col-lg-3">
-
-                <select
-                  className="form-select"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  style={{
-                    height: "46px",
-                    borderRadius: "8px"
-                  }}
-                >
-
-                  <option>All Status</option>
-                  <option>Verified</option>
-                  <option>Issued</option>
-                  <option>Pending</option>
-
-                </select>
-
-              </div>
-
-
-              <div className="col-lg-2 text-lg-end">
-
-                <small style={{ color: "#64748b" }}>
-                  {filteredCredentials.length} records
-                </small>
-
-              </div>
+              {loading
+                ? "Loading..."
+                : `${filteredCredentials.length} records`}
 
             </div>
 
           </div>
 
 
-          {/* TABLE */}
+          {/* =================================================
+              FILTERS
+              ================================================= */}
 
-          <div className="table-responsive">
+          <div className="history-filters">
 
-            <table
-              className="table mb-0 align-middle"
-              style={{
-                minWidth: "1000px"
-              }}
+            <div className="history-search-wrapper">
+
+              <FaSearch />
+
+              <input
+                type="text"
+                placeholder="Search by credential ID, student name, roll number or institution..."
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+              />
+
+            </div>
+
+            <select
+              value={status}
+              onChange={(e) =>
+                setStatus(e.target.value)
+              }
+              className="history-status-filter"
             >
 
-              <thead
-                style={{
-                  background: "#f8fafc"
-                }}
-              >
+              <option value="All Status">
+                All Status
+              </option>
+
+              <option value="Valid">
+                Valid
+              </option>
+
+              <option value="Revoked">
+                Revoked
+              </option>
+
+            </select>
+
+          </div>
+
+
+          {/* =================================================
+              TABLE
+              ================================================= */}
+
+          <div className="history-table-wrapper">
+
+            <table className="history-table">
+
+              <thead>
 
                 <tr>
 
-                  <th className="px-4 py-3">
+                  <th>
                     Credential
                   </th>
 
@@ -477,6 +604,10 @@ function History() {
 
                   <th>
                     Department
+                  </th>
+
+                  <th>
+                    Institution
                   </th>
 
                   <th>
@@ -502,151 +633,272 @@ function History() {
 
               <tbody>
 
-                {filteredCredentials.map((credential) => (
+                {/* =================================================
+                    LOADING
+                    ================================================= */}
 
-                  <tr key={credential.id}>
-
-                    <td className="px-4">
-
-                      <div
-                        style={{
-                          fontWeight: "700",
-                          color: "#2563eb"
-                        }}
-                      >
-                        {credential.id}
-                      </div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Academic Credential
-                      </small>
-
-                    </td>
-
-
-                    <td>
-
-                      <div
-                        style={{
-                          fontWeight: "600",
-                          color: "#0f172a"
-                        }}
-                      >
-                        {credential.student}
-                      </div>
-
-                      <small style={{ color: "#64748b" }}>
-                        {credential.studentId}
-                      </small>
-
-                    </td>
-
-
-                    <td>
-                      {credential.degree}
-                    </td>
-
-
-                    <td>
-                      {credential.department}
-                    </td>
-
-
-                    <td>
-                      {credential.issueDate}
-                    </td>
-
-
-                    <td>
-
-                      <span
-                        className="px-2 py-1"
-                        style={{
-                          ...getStatusStyle(credential.status),
-                          borderRadius: "6px",
-                          fontSize: "12px",
-                          fontWeight: "600"
-                        }}
-                      >
-                        {credential.status}
-                      </span>
-
-                    </td>
-
-
-                    <td>
-
-                      <span
-                        className="px-2 py-1"
-                        style={{
-                          ...getStatusStyle(credential.blockchain),
-                          borderRadius: "6px",
-                          fontSize: "12px",
-                          fontWeight: "600"
-                        }}
-                      >
-                        {credential.blockchain}
-                      </span>
-
-                    </td>
-
-
-                    <td>
-
-                      <Link
-                        to="/verify"
-                        className="btn btn-sm"
-                        title="View Credential"
-                        style={{
-                          background: "#f1f5f9",
-                          color: "#475569"
-                        }}
-                      >
-                        <FaEye size={13} />
-                      </Link>
-
-                    </td>
-
-                  </tr>
-
-                ))}
-
-
-                {filteredCredentials.length === 0 && (
-
+                {loading && (
                   <tr>
 
                     <td
-                      colSpan="8"
-                      className="text-center py-5"
+                      colSpan="9"
+                      className="history-loading"
                     >
 
-                      <FaCertificate
-                        size={30}
-                        style={{
-                          color: "#cbd5e1",
-                          marginBottom: "10px"
-                        }}
-                      />
+                      <div className="history-spinner"></div>
 
-                      <div
-                        style={{
-                          fontWeight: "600",
-                          color: "#475569"
-                        }}
-                      >
-                        No credentials found
-                      </div>
+                      <strong>
+                        Loading certificate history...
+                      </strong>
 
-                      <small style={{ color: "#94a3b8" }}>
-                        Try changing your search or status filter.
-                      </small>
+                      <span>
+                        Retrieving credentials securely.
+                      </span>
 
                     </td>
 
                   </tr>
-
                 )}
+
+
+                {/* =================================================
+                    DATA
+                    ================================================= */}
+
+                {!loading &&
+                  filteredCredentials.map(
+                    (credential) => {
+
+                      const credentialId =
+                        credential.credentialId ||
+                        "N/A";
+
+                      const studentName =
+                        credential.studentName ||
+                        "Unknown Student";
+
+                      const rollNumber =
+                        credential.rollNumber ||
+                        "N/A";
+
+                      const degree =
+                        credential.degree ||
+                        "N/A";
+
+                      const department =
+                        credential.department ||
+                        "N/A";
+
+                      const institution =
+                        credential.institution ||
+                        "N/A";
+
+                      const issueDate =
+                        formatDate(
+                          credential.issueDate
+                        );
+
+                      const credentialStatus =
+                        credential.status ||
+                        "Valid";
+
+                      const blockchainStatus =
+                        credential.blockchainStatus ||
+                        "Pending";
+
+                      return (
+                        <tr
+                          key={credentialId}
+                        >
+
+                          {/* CREDENTIAL */}
+
+                          <td>
+
+                            <div className="history-credential-id">
+                              {credentialId}
+                            </div>
+
+                            <div className="history-secondary-text">
+                              Academic Credential
+                            </div>
+
+                          </td>
+
+
+                          {/* STUDENT */}
+
+                          <td>
+
+                            <div className="history-student-name">
+                              {studentName}
+                            </div>
+
+                            <div className="history-secondary-text">
+                              {rollNumber}
+                            </div>
+
+                          </td>
+
+
+                          {/* DEGREE */}
+
+                          <td>
+
+                            <span className="history-main-text">
+                              {degree}
+                            </span>
+
+                          </td>
+
+
+                          {/* DEPARTMENT */}
+
+                          <td>
+
+                            <span className="history-main-text">
+                              {department}
+                            </span>
+
+                          </td>
+
+
+                          {/* INSTITUTION */}
+
+                          <td>
+
+                            <div className="history-institution">
+
+                              <FaUniversity />
+
+                              <span>
+                                {institution}
+                              </span>
+
+                            </div>
+
+                          </td>
+
+
+                          {/* DATE */}
+
+                          <td>
+
+                            <span className="history-main-text">
+                              {issueDate}
+                            </span>
+
+                          </td>
+
+
+                          {/* STATUS */}
+
+                          <td>
+
+                            <span
+                              className={getCredentialStatusClass(
+                                credentialStatus
+                              )}
+                            >
+
+                              {credentialStatus}
+
+                            </span>
+
+                          </td>
+
+
+                          {/* BLOCKCHAIN */}
+
+                          <td>
+
+                            <span
+                              className={getCredentialStatusClass(
+                                blockchainStatus
+                              )}
+                            >
+
+                              <FaLink />
+
+                              {blockchainStatus}
+
+                            </span>
+
+                          </td>
+
+
+                          {/* ACTION */}
+
+                          <td>
+
+                            <Link
+                              to={`/verify?credentialId=${encodeURIComponent(
+                                credentialId
+                              )}`}
+                              className="history-view-button"
+                              title="Verify Credential"
+                            >
+
+                              <FaEye />
+
+                              <span>
+                                Verify
+                              </span>
+
+                            </Link>
+
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )}
+
+
+                {/* =================================================
+                    EMPTY
+                    ================================================= */}
+
+                {!loading &&
+                  filteredCredentials.length === 0 && (
+
+                    <tr>
+
+                      <td
+                        colSpan="9"
+                        className="history-empty"
+                      >
+
+                        <div className="history-empty-icon">
+                          <FaCertificate />
+                        </div>
+
+                        <h3>
+                          No credentials found
+                        </h3>
+
+                        <p>
+                          Try changing your search
+                          or status filter.
+                        </p>
+
+                        {credentials.length === 0 && (
+                          <Link
+                            to="/issue"
+                            className="history-empty-button"
+                          >
+
+                            <FaPlus />
+
+                            Issue First Credential
+
+                          </Link>
+                        )}
+
+                      </td>
+
+                    </tr>
+                  )}
 
               </tbody>
 
@@ -654,7 +906,67 @@ function History() {
 
           </div>
 
-        </div>
+
+          {/* =================================================
+              TABLE FOOTER
+              ================================================= */}
+
+          {!loading &&
+            filteredCredentials.length > 0 && (
+
+              <div className="history-table-footer">
+
+                <span>
+
+                  Showing{" "}
+
+                  <strong>
+                    {filteredCredentials.length}
+                  </strong>{" "}
+
+                  credential
+                  {filteredCredentials.length !== 1
+                    ? "s"
+                    : ""}
+
+                </span>
+
+                <span>
+                  Securely managed by BCV
+                </span>
+
+              </div>
+
+            )}
+
+        </section>
+
+
+        {/* =================================================
+            SECURITY INFORMATION
+            ================================================= */}
+
+        <section className="history-security-card">
+
+          <div className="history-security-icon">
+            <FaShieldAlt />
+          </div>
+
+          <div>
+
+            <h3>
+              Blockchain-secured credential records
+            </h3>
+
+            <p>
+              Credential information is stored securely
+              and blockchain records provide an additional
+              layer of integrity verification.
+            </p>
+
+          </div>
+
+        </section>
 
       </main>
 

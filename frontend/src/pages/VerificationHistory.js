@@ -1,1047 +1,941 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FaShieldAlt,
   FaSearch,
   FaCheckCircle,
   FaTimesCircle,
-  FaQrcode,
-  FaLock,
-  FaLink,
+  FaClock,
+  FaExternalLinkAlt,
+  FaArrowLeft,
+  FaCertificate,
   FaUniversity,
-  FaGraduationCap,
-  FaCalendarAlt,
-  FaFingerprint
+  FaSyncAlt,
+  FaInfoCircle
 } from "react-icons/fa";
 
-function Verify() {
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "https://blockchain-credential-verification-murt.onrender.com";
 
-  const [credentialId, setCredentialId] = useState("");
-  const [result, setResult] = useState(null);
+function VerificationHistory() {
+  const [credentials, setCredentials] = useState([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Demo credential records
-  const credentials = {
-    "BCV-2026-001": {
-      studentName: "Rahul Sharma",
-      studentId: "STU001",
-      degree: "B.Tech",
-      department: "Computer Science",
-      university: "ABC Institute of Technology",
-      issueDate: "12 Aug 2026",
-      credentialType: "Degree Certificate",
-      status: "Verified",
-      blockchain: "Confirmed",
-      hash: "8a4f2d91c73e6b8a...91c2",
-      transactionHash: "0x7a91...e83d"
-    },
+  /* =====================================================
+     FETCH CREDENTIALS
+     ===================================================== */
 
-    "BCV-2026-002": {
-      studentName: "Priya Reddy",
-      studentId: "STU002",
-      degree: "B.Tech",
-      department: "Electronics",
-      university: "ABC Institute of Technology",
-      issueDate: "10 Aug 2026",
-      credentialType: "Degree Certificate",
-      status: "Verified",
-      blockchain: "Confirmed",
-      hash: "3b82a1f9d64c7e21...45fa",
-      transactionHash: "0x4c82...a71b"
-    },
+  const fetchCredentials = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-    "BCV-2026-003": {
-      studentName: "Arjun Kumar",
-      studentId: "STU003",
-      degree: "B.Tech",
-      department: "Mechanical",
-      university: "ABC Institute of Technology",
-      issueDate: "08 Aug 2026",
-      credentialType: "Degree Certificate",
-      status: "Pending",
-      blockchain: "Pending",
-      hash: "6d92f8a1c45b7e32...19ad",
-      transactionHash: "0x5b73...c921"
-    },
+      const token = localStorage.getItem("token");
 
-    "BCV-2026-004": {
-      studentName: "Sneha Patel",
-      studentId: "STU004",
-      degree: "B.Tech",
-      department: "Computer Science",
-      university: "ABC Institute of Technology",
-      issueDate: "05 Aug 2026",
-      credentialType: "Degree Certificate",
-      status: "Verified",
-      blockchain: "Confirmed",
-      hash: "9c31a7e2d84f5b61...72bc",
-      transactionHash: "0x8d42...f615"
-    },
+      if (!token) {
+        setError(
+          "You are not logged in. Please login again."
+        );
+        setLoading(false);
+        return;
+      }
 
-    "BCV-2026-005": {
-      studentName: "Vikram Rao",
-      studentId: "STU005",
-      degree: "B.Tech",
-      department: "Information Technology",
-      university: "ABC Institute of Technology",
-      issueDate: "02 Aug 2026",
-      credentialType: "Degree Certificate",
-      status: "Issued",
-      blockchain: "Confirmed",
-      hash: "4e72b9c1a63d8f54...38ef",
-      transactionHash: "0x2f81...b437"
+      const response = await fetch(
+        `${API_URL}/api/credentials`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            "Your session has expired. Please login again."
+          );
+        }
+
+        throw new Error(
+          data.message ||
+          "Failed to load verification history."
+        );
+      }
+
+      const credentialData =
+        Array.isArray(data)
+          ? data
+          : Array.isArray(data.credentials)
+          ? data.credentials
+          : Array.isArray(data.data)
+          ? data.data
+          : [];
+
+      setCredentials(credentialData);
+
+    } catch (err) {
+      console.error(
+        "Verification History Error:",
+        err
+      );
+
+      setError(
+        err.message ||
+        "Unable to load verification history."
+      );
+
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleVerify = (e) => {
+  useEffect(() => {
+    fetchCredentials();
+  }, []);
 
-    e.preventDefault();
+  /* =====================================================
+     DATE FORMAT
+     ===================================================== */
 
-    const id = credentialId.trim().toUpperCase();
-
-    if (credentials[id]) {
-
-      setResult({
-        found: true,
-        data: credentials[id]
-      });
-
-    } else {
-
-      setResult({
-        found: false
-      });
-
+  const formatDate = (date) => {
+    if (!date) {
+      return "Not available";
     }
+
+    const formatted = new Date(date);
+
+    if (Number.isNaN(formatted.getTime())) {
+      return "Not available";
+    }
+
+    return formatted.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }
+    );
   };
 
-  const handleReset = () => {
-    setCredentialId("");
-    setResult(null);
+  /* =====================================================
+     FILTER
+     ===================================================== */
+
+  const filteredCredentials = useMemo(() => {
+    return credentials.filter((credential) => {
+
+      const searchText =
+        search.toLowerCase().trim();
+
+      const matchesSearch =
+        !searchText ||
+        String(
+          credential.credentialId || ""
+        )
+          .toLowerCase()
+          .includes(searchText) ||
+
+        String(
+          credential.studentName || ""
+        )
+          .toLowerCase()
+          .includes(searchText) ||
+
+        String(
+          credential.rollNumber || ""
+        )
+          .toLowerCase()
+          .includes(searchText) ||
+
+        String(
+          credential.degree || ""
+        )
+          .toLowerCase()
+          .includes(searchText) ||
+
+        String(
+          credential.department || ""
+        )
+          .toLowerCase()
+          .includes(searchText) ||
+
+        String(
+          credential.institution || ""
+        )
+          .toLowerCase()
+          .includes(searchText);
+
+      let matchesStatus = true;
+
+      if (statusFilter === "Verified") {
+        matchesStatus =
+          credential.status === "Valid" &&
+          credential.blockchainStatus === "Confirmed";
+      }
+
+      if (statusFilter === "Pending") {
+        matchesStatus =
+          credential.blockchainStatus === "Pending";
+      }
+
+      if (statusFilter === "Revoked") {
+        matchesStatus =
+          credential.status === "Revoked";
+      }
+
+      return (
+        matchesSearch &&
+        matchesStatus
+      );
+    });
+  }, [
+    credentials,
+    search,
+    statusFilter
+  ]);
+
+  /* =====================================================
+     STATISTICS
+     ===================================================== */
+
+  const verifiedCount =
+    credentials.filter(
+      (credential) =>
+        credential.status === "Valid" &&
+        credential.blockchainStatus === "Confirmed"
+    ).length;
+
+  const pendingCount =
+    credentials.filter(
+      (credential) =>
+        credential.blockchainStatus === "Pending"
+    ).length;
+
+  const revokedCount =
+    credentials.filter(
+      (credential) =>
+        credential.status === "Revoked"
+    ).length;
+
+  /* =====================================================
+     STATUS HELPERS
+     ===================================================== */
+
+  const getCredentialStatus = (credential) => {
+
+    if (
+      credential.status === "Revoked"
+    ) {
+      return {
+        label: "Revoked",
+        className:
+          "verification-status verification-status-danger",
+        icon: <FaTimesCircle />
+      };
+    }
+
+    if (
+      credential.status === "Valid" &&
+      credential.blockchainStatus === "Confirmed"
+    ) {
+      return {
+        label: "Verified",
+        className:
+          "verification-status verification-status-success",
+        icon: <FaCheckCircle />
+      };
+    }
+
+    return {
+      label: "Pending",
+      className:
+        "verification-status verification-status-pending",
+      icon: <FaClock />
+    };
   };
+
+  /* =====================================================
+     RENDER
+     ===================================================== */
 
   return (
+    <div className="verification-history-page">
 
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc"
-      }}
-    >
+      {/* =================================================
+          NAVBAR
+          ================================================= */}
 
-      {/* NAVBAR */}
+      <nav className="verification-history-navbar">
 
-      <nav
-        className="bg-white border-bottom"
-        style={{
-          height: "70px"
-        }}
-      >
-
-        <div
-          className="container d-flex align-items-center justify-content-between h-100"
-        >
+        <div className="verification-history-navbar-inner">
 
           <Link
-            to="/"
-            className="d-flex align-items-center gap-2"
-            style={{
-              textDecoration: "none"
-            }}
+            to="/dashboard"
+            className="verification-history-brand"
           >
 
-            <div
-              className="d-flex align-items-center justify-content-center"
-              style={{
-                width: "40px",
-                height: "40px",
-                background: "#2563eb",
-                borderRadius: "9px",
-                color: "white"
-              }}
-            >
+            <div className="verification-history-brand-icon">
               <FaShieldAlt />
             </div>
 
             <div>
 
-              <div
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a"
-                }}
-              >
+              <div className="verification-history-brand-title">
                 BCV
               </div>
 
-              <small style={{ color: "#64748b" }}>
+              <div className="verification-history-brand-subtitle">
                 Blockchain Credential Verification
-              </small>
+              </div>
 
             </div>
 
           </Link>
 
+          <Link
+            to="/dashboard"
+            className="verification-history-back"
+          >
 
-          <div className="d-flex gap-4 align-items-center">
+            <FaArrowLeft />
 
-            <Link
-              to="/"
-              style={{
-                color: "#475569",
-                fontSize: "14px",
-                textDecoration: "none"
-              }}
-            >
-              Home
-            </Link>
+            <span>
+              Back to Dashboard
+            </span>
 
-            <Link
-              to="/login"
-              style={{
-                color: "#475569",
-                fontSize: "14px",
-                textDecoration: "none"
-              }}
-            >
-              University Login
-            </Link>
-
-          </div>
+          </Link>
 
         </div>
 
       </nav>
 
 
-      {/* MAIN */}
+      {/* =================================================
+          MAIN
+          ================================================= */}
 
-      <main className="container py-5">
+      <main className="verification-history-main">
 
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+            ================================================= */}
 
-        <div className="text-center mb-5">
+        <section className="verification-history-header">
 
-          <div
-            className="d-inline-flex align-items-center justify-content-center mb-3"
-            style={{
-              width: "58px",
-              height: "58px",
-              background: "#dbeafe",
-              color: "#2563eb",
-              borderRadius: "15px"
-            }}
-          >
-            <FaShieldAlt size={25} />
-          </div>
+          <div>
 
-          <h1
-            style={{
-              fontSize: "clamp(32px, 4vw, 48px)",
-              fontWeight: "800",
-              color: "#0f172a",
-              marginBottom: "12px"
-            }}
-          >
-            Verify Academic Credential
-          </h1>
+            <div className="verification-history-eyebrow">
 
-          <p
-            style={{
-              maxWidth: "650px",
-              margin: "0 auto",
-              color: "#64748b",
-              fontSize: "17px",
-              lineHeight: "1.7"
-            }}
-          >
-            Verify the authenticity of an academic certificate using
-            its unique credential ID. Verification provides a trusted
-            and tamper-evident result.
-          </p>
+              <FaShieldAlt />
 
-        </div>
-
-
-        {/* SEARCH CARD */}
-
-        <div
-          className="bg-white mx-auto p-4 p-md-5"
-          style={{
-            maxWidth: "850px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "16px",
-            boxShadow: "0 8px 30px rgba(15, 23, 42, 0.05)"
-          }}
-        >
-
-          <form onSubmit={handleVerify}>
-
-            <label
-              className="form-label"
-              style={{
-                fontWeight: "700",
-                color: "#0f172a"
-              }}
-            >
-              Credential ID
-            </label>
-
-            <div className="row g-3">
-
-              <div className="col-md-9">
-
-                <div className="position-relative">
-
-                  <FaSearch
-                    style={{
-                      position: "absolute",
-                      left: "16px",
-                      top: "15px",
-                      color: "#94a3b8"
-                    }}
-                  />
-
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Enter credential ID e.g. BCV-2026-001"
-                    value={credentialId}
-                    onChange={(e) => setCredentialId(e.target.value)}
-                    style={{
-                      height: "50px",
-                      paddingLeft: "44px",
-                      borderRadius: "8px"
-                    }}
-                    required
-                  />
-
-                </div>
-
-              </div>
-
-              <div className="col-md-3">
-
-                <button
-                  type="submit"
-                  className="btn w-100"
-                  style={{
-                    height: "50px",
-                    background: "#2563eb",
-                    color: "white",
-                    borderRadius: "8px",
-                    fontWeight: "600"
-                  }}
-                >
-                  Verify
-                </button>
-
-              </div>
+              Verification Monitoring
 
             </div>
 
-          </form>
-
-
-          {/* DEMO IDS */}
-
-          <div
-            className="mt-3"
-            style={{
-              fontSize: "13px",
-              color: "#94a3b8"
-            }}
-          >
-            Demo credentials:
-
-            {Object.keys(credentials).map((id, index) => (
-
-              <React.Fragment key={id}>
-
-                <button
-                  type="button"
-                  onClick={() => setCredentialId(id)}
-                  style={{
-                    border: "none",
-                    background: "none",
-                    color: "#2563eb",
-                    marginLeft: index === 0 ? "5px" : "8px",
-                    padding: 0,
-                    cursor: "pointer"
-                  }}
-                >
-                  {id}
-                </button>
-
-                {index < Object.keys(credentials).length - 1 && (
-                  <span style={{ color: "#cbd5e1" }}>
-                    {" | "}
-                  </span>
-                )}
-
-              </React.Fragment>
-
-            ))}
-
-          </div>
-
-        </div>
-
-
-        {/* SUCCESS RESULT */}
-
-        {result && result.found && (
-
-          <div
-            className="mx-auto mt-4"
-            style={{
-              maxWidth: "850px"
-            }}
-          >
-
-            {/* SUCCESS HEADER */}
-
-            <div
-              className="p-4 p-md-5"
-              style={{
-                background: "#f0fdf4",
-                border: "1px solid #bbf7d0",
-                borderRadius: "16px 16px 0 0"
-              }}
-            >
-
-              <div className="d-flex align-items-center gap-3">
-
-                <div
-                  className="d-flex align-items-center justify-content-center"
-                  style={{
-                    width: "52px",
-                    height: "52px",
-                    background: "#dcfce7",
-                    color: "#16a34a",
-                    borderRadius: "50%"
-                  }}
-                >
-                  <FaCheckCircle size={27} />
-                </div>
-
-                <div>
-
-                  <h4
-                    style={{
-                      color: "#166534",
-                      fontWeight: "800",
-                      marginBottom: "4px"
-                    }}
-                  >
-                    Credential Verified
-                  </h4>
-
-                  <div
-                    style={{
-                      color: "#15803d",
-                      fontSize: "14px"
-                    }}
-                  >
-                    This credential exists in the verification system.
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* CREDENTIAL DETAILS */}
-
-            <div
-              className="bg-white p-4 p-md-5"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderTop: "none"
-              }}
-            >
-
-              <h5
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a",
-                  marginBottom: "25px"
-                }}
-              >
-                Credential Information
-              </h5>
-
-
-              <div className="row g-4">
-
-                <div className="col-md-6">
-
-                  <div className="d-flex gap-3">
-
-                    <FaGraduationCap
-                      style={{
-                        color: "#2563eb",
-                        marginTop: "4px"
-                      }}
-                    />
-
-                    <div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Student Name
-                      </small>
-
-                      <div
-                        style={{
-                          fontWeight: "700",
-                          color: "#0f172a"
-                        }}
-                      >
-                        {result.data.studentName}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="col-md-6">
-
-                  <div className="d-flex gap-3">
-
-                    <FaFingerprint
-                      style={{
-                        color: "#2563eb",
-                        marginTop: "4px"
-                      }}
-                    />
-
-                    <div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Student ID
-                      </small>
-
-                      <div
-                        style={{
-                          fontWeight: "700",
-                          color: "#0f172a"
-                        }}
-                      >
-                        {result.data.studentId}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="col-md-6">
-
-                  <div className="d-flex gap-3">
-
-                    <FaGraduationCap
-                      style={{
-                        color: "#2563eb",
-                        marginTop: "4px"
-                      }}
-                    />
-
-                    <div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Degree
-                      </small>
-
-                      <div
-                        style={{
-                          fontWeight: "700",
-                          color: "#0f172a"
-                        }}
-                      >
-                        {result.data.degree}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="col-md-6">
-
-                  <div className="d-flex gap-3">
-
-                    <FaUniversity
-                      style={{
-                        color: "#2563eb",
-                        marginTop: "4px"
-                      }}
-                    />
-
-                    <div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Department
-                      </small>
-
-                      <div
-                        style={{
-                          fontWeight: "700",
-                          color: "#0f172a"
-                        }}
-                      >
-                        {result.data.department}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="col-md-6">
-
-                  <div className="d-flex gap-3">
-
-                    <FaUniversity
-                      style={{
-                        color: "#2563eb",
-                        marginTop: "4px"
-                      }}
-                    />
-
-                    <div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Issuing Institution
-                      </small>
-
-                      <div
-                        style={{
-                          fontWeight: "700",
-                          color: "#0f172a"
-                        }}
-                      >
-                        {result.data.university}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="col-md-6">
-
-                  <div className="d-flex gap-3">
-
-                    <FaCalendarAlt
-                      style={{
-                        color: "#2563eb",
-                        marginTop: "4px"
-                      }}
-                    />
-
-                    <div>
-
-                      <small style={{ color: "#94a3b8" }}>
-                        Issue Date
-                      </small>
-
-                      <div
-                        style={{
-                          fontWeight: "700",
-                          color: "#0f172a"
-                        }}
-                      >
-                        {result.data.issueDate}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              <hr className="my-4" />
-
-
-              <h6
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a",
-                  marginBottom: "15px"
-                }}
-              >
-                Verification Record
-              </h6>
-
-
-              <div
-                className="p-3 mb-3"
-                style={{
-                  background: "#f8fafc",
-                  borderRadius: "8px"
-                }}
-              >
-
-                <div className="d-flex justify-content-between flex-wrap gap-2">
-
-                  <span style={{ color: "#64748b" }}>
-                    Credential ID
-                  </span>
-
-                  <strong>
-                    {credentialId.toUpperCase()}
-                  </strong>
-
-                </div>
-
-              </div>
-
-
-              <div
-                className="p-3 mb-3"
-                style={{
-                  background: "#f8fafc",
-                  borderRadius: "8px"
-                }}
-              >
-
-                <div className="d-flex justify-content-between flex-wrap gap-2">
-
-                  <span style={{ color: "#64748b" }}>
-                    SHA-256 Hash
-                  </span>
-
-                  <strong
-                    style={{
-                      fontSize: "13px"
-                    }}
-                  >
-                    {result.data.hash}
-                  </strong>
-
-                </div>
-
-              </div>
-
-
-              <div
-                className="p-3"
-                style={{
-                  background: "#f8fafc",
-                  borderRadius: "8px"
-                }}
-              >
-
-                <div className="d-flex justify-content-between flex-wrap gap-2">
-
-                  <span style={{ color: "#64748b" }}>
-                    Blockchain Transaction
-                  </span>
-
-                  <strong
-                    style={{
-                      color: "#2563eb",
-                      fontSize: "13px"
-                    }}
-                  >
-                    {result.data.transactionHash}
-                  </strong>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* SECURITY STATUS */}
-
-            <div
-              className="bg-white p-4 p-md-5"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderTop: "none"
-              }}
-            >
-
-              <div className="row g-3">
-
-                <div className="col-md-4">
-
-                  <div
-                    className="p-3 text-center"
-                    style={{
-                      background: "#f0fdf4",
-                      borderRadius: "10px"
-                    }}
-                  >
-
-                    <FaCheckCircle
-                      style={{
-                        color: "#16a34a",
-                        marginBottom: "8px"
-                      }}
-                    />
-
-                    <div
-                      style={{
-                        fontWeight: "700"
-                      }}
-                    >
-                      Credential Valid
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="col-md-4">
-
-                  <div
-                    className="p-3 text-center"
-                    style={{
-                      background: "#f0fdf4",
-                      borderRadius: "10px"
-                    }}
-                  >
-
-                    <FaLock
-                      style={{
-                        color: "#16a34a",
-                        marginBottom: "8px"
-                      }}
-                    />
-
-                    <div
-                      style={{
-                        fontWeight: "700"
-                      }}
-                    >
-                      Hash Matched
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="col-md-4">
-
-                  <div
-                    className="p-3 text-center"
-                    style={{
-                      background: "#f0fdf4",
-                      borderRadius: "10px"
-                    }}
-                  >
-
-                    <FaLink
-                      style={{
-                        color: "#16a34a",
-                        marginBottom: "8px"
-                      }}
-                    />
-
-                    <div
-                      style={{
-                        fontWeight: "700"
-                      }}
-                    >
-                      Blockchain Confirmed
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* RESET */}
-
-            <div
-              className="bg-white p-4 text-center"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderTop: "none",
-                borderRadius: "0 0 16px 16px"
-              }}
-            >
-
-              <button
-                type="button"
-                onClick={handleReset}
-                className="btn"
-                style={{
-                  border: "1px solid #cbd5e1",
-                  color: "#475569",
-                  borderRadius: "8px"
-                }}
-              >
-                Verify Another Credential
-              </button>
-
-            </div>
-
-          </div>
-
-        )}
-
-
-        {/* INVALID RESULT */}
-
-        {result && !result.found && (
-
-          <div
-            className="mx-auto mt-4 p-4 p-md-5 text-center"
-            style={{
-              maxWidth: "850px",
-              background: "#fff",
-              border: "1px solid #fecaca",
-              borderRadius: "16px"
-            }}
-          >
-
-            <div
-              className="mx-auto mb-3 d-flex align-items-center justify-content-center"
-              style={{
-                width: "60px",
-                height: "60px",
-                background: "#fee2e2",
-                color: "#dc2626",
-                borderRadius: "50%"
-              }}
-            >
-              <FaTimesCircle size={30} />
-            </div>
-
-
-            <h4
-              style={{
-                fontWeight: "800",
-                color: "#991b1b"
-              }}
-            >
-              Credential Not Found
-            </h4>
-
-
-            <p
-              style={{
-                color: "#64748b",
-                maxWidth: "550px",
-                margin: "10px auto 20px"
-              }}
-            >
-              No credential matching this ID was found in the
-              verification system. Please check the credential ID
-              and try again.
+            <h1>
+              Verification History
+            </h1>
+
+            <p>
+              Monitor the verification status of academic
+              credentials issued through the BCV platform.
             </p>
 
+          </div>
+
+          <Link
+            to="/verify"
+            className="verification-history-verify-button"
+          >
+
+            <FaSearch />
+
+            Verify Credential
+
+          </Link>
+
+        </section>
+
+
+        {/* =================================================
+            STATISTICS
+            ================================================= */}
+
+        <section className="verification-history-stats">
+
+          {/* VERIFIED */}
+
+          <div className="verification-history-stat-card">
+
+            <div>
+
+              <span className="verification-history-stat-label">
+                Verified
+              </span>
+
+              <strong className="verification-history-stat-number verified">
+                {loading
+                  ? "—"
+                  : verifiedCount}
+              </strong>
+
+              <span className="verification-history-stat-description">
+                Valid blockchain-confirmed credentials
+              </span>
+
+            </div>
+
+            <div className="verification-history-stat-icon green">
+              <FaCheckCircle />
+            </div>
+
+          </div>
+
+
+          {/* PENDING */}
+
+          <div className="verification-history-stat-card">
+
+            <div>
+
+              <span className="verification-history-stat-label">
+                Pending
+              </span>
+
+              <strong className="verification-history-stat-number pending">
+                {loading
+                  ? "—"
+                  : pendingCount}
+              </strong>
+
+              <span className="verification-history-stat-description">
+                Awaiting blockchain confirmation
+              </span>
+
+            </div>
+
+            <div className="verification-history-stat-icon amber">
+              <FaClock />
+            </div>
+
+          </div>
+
+
+          {/* REVOKED */}
+
+          <div className="verification-history-stat-card">
+
+            <div>
+
+              <span className="verification-history-stat-label">
+                Revoked
+              </span>
+
+              <strong className="verification-history-stat-number revoked">
+                {loading
+                  ? "—"
+                  : revokedCount}
+              </strong>
+
+              <span className="verification-history-stat-description">
+                Credentials marked as revoked
+              </span>
+
+            </div>
+
+            <div className="verification-history-stat-icon red">
+              <FaTimesCircle />
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =================================================
+            SEARCH / FILTER
+            ================================================= */}
+
+        <section className="verification-history-filter-card">
+
+          <div className="verification-history-filter-header">
+
+            <div>
+
+              <h2>
+                Credential Verification Records
+              </h2>
+
+              <p>
+                Search credentials and review their current
+                verification status.
+              </p>
+
+            </div>
+
+            <span className="verification-history-record-count">
+              {loading
+                ? "Loading..."
+                : `${filteredCredentials.length} records`}
+            </span>
+
+          </div>
+
+
+          <div className="verification-history-filters">
+
+            <div className="verification-history-search">
+
+              <FaSearch />
+
+              <input
+                type="text"
+                placeholder="Search credential ID, student name, roll number, degree or institution..."
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+              />
+
+            </div>
+
+
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value)
+              }
+              className="verification-history-select"
+            >
+
+              <option value="All">
+                All Status
+              </option>
+
+              <option value="Verified">
+                Verified
+              </option>
+
+              <option value="Pending">
+                Pending
+              </option>
+
+              <option value="Revoked">
+                Revoked
+              </option>
+
+            </select>
+
+          </div>
+
+        </section>
+
+
+        {/* =================================================
+            ERROR
+            ================================================= */}
+
+        {!loading && error && (
+
+          <section className="verification-history-message error">
+
+            <div className="verification-history-message-icon">
+              <FaTimesCircle />
+            </div>
+
+            <div>
+
+              <h3>
+                Unable to Load History
+              </h3>
+
+              <p>
+                {error}
+              </p>
+
+            </div>
 
             <button
               type="button"
-              onClick={handleReset}
-              className="btn"
-              style={{
-                background: "#2563eb",
-                color: "white",
-                borderRadius: "8px"
-              }}
+              className="verification-history-retry"
+              onClick={fetchCredentials}
             >
-              Try Again
+
+              <FaSyncAlt />
+
+              Retry
+
             </button>
 
-          </div>
+          </section>
 
         )}
 
 
-        {/* QR SECTION */}
+        {/* =================================================
+            LOADING
+            ================================================= */}
 
-        {!result && (
+        {loading && (
 
-          <div
-            className="mx-auto mt-5"
-            style={{
-              maxWidth: "850px"
-            }}
-          >
+          <section className="verification-history-loading">
 
-            <div
-              className="bg-white p-4 p-md-5 text-center"
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "16px"
-              }}
-            >
+            <div className="verification-history-spinner"></div>
 
-              <FaQrcode
-                size={35}
-                style={{
-                  color: "#2563eb",
-                  marginBottom: "15px"
-                }}
-              />
+            <h3>
+              Loading verification history...
+            </h3>
 
-              <h5
-                style={{
-                  fontWeight: "800",
-                  color: "#0f172a"
-                }}
-              >
-                Verify Using QR Code
-              </h5>
+            <p>
+              Retrieving credential records securely.
+            </p>
 
-              <p
-                style={{
-                  color: "#64748b",
-                  maxWidth: "550px",
-                  margin: "8px auto 0",
-                  lineHeight: "1.6"
-                }}
-              >
-                Every issued credential can later be associated
-                with a unique QR code that directs users to its
-                verification record.
-              </p>
+          </section>
 
-              <div
-                className="mt-4 p-3"
-                style={{
-                  background: "#f8fafc",
-                  borderRadius: "8px",
-                  color: "#94a3b8",
-                  fontSize: "14px"
-                }}
-              >
-                QR scanner integration will be connected in the
-                next development phase.
+        )}
+
+
+        {/* =================================================
+            EMPTY
+            ================================================= */}
+
+        {!loading &&
+          !error &&
+          filteredCredentials.length === 0 && (
+
+            <section className="verification-history-empty">
+
+              <div className="verification-history-empty-icon">
+                <FaSearch />
               </div>
 
-            </div>
+              <h3>
+                No Verification Records Found
+              </h3>
 
-          </div>
+              <p>
+                Try changing your search term or status filter.
+              </p>
 
-        )}
+              <Link
+                to="/verify"
+                className="verification-history-empty-button"
+              >
+
+                <FaSearch />
+
+                Verify a Credential
+
+              </Link>
+
+            </section>
+
+          )}
+
+
+        {/* =================================================
+            TABLE
+            ================================================= */}
+
+        {!loading &&
+          !error &&
+          filteredCredentials.length > 0 && (
+
+            <section className="verification-history-table-card">
+
+              <div className="verification-history-table-wrapper">
+
+                <table className="verification-history-table">
+
+                  <thead>
+
+                    <tr>
+
+                      <th>
+                        Credential
+                      </th>
+
+                      <th>
+                        Student
+                      </th>
+
+                      <th>
+                        Institution
+                      </th>
+
+                      <th>
+                        Issue Date
+                      </th>
+
+                      <th>
+                        Verification
+                      </th>
+
+                      <th>
+                        Blockchain
+                      </th>
+
+                      <th>
+                        Action
+                      </th>
+
+                    </tr>
+
+                  </thead>
+
+
+                  <tbody>
+
+                    {filteredCredentials.map(
+                      (credential) => {
+
+                        const credentialStatus =
+                          getCredentialStatus(
+                            credential
+                          );
+
+                        return (
+
+                          <tr
+                            key={
+                              credential._id ||
+                              credential.credentialId
+                            }
+                          >
+
+                            {/* CREDENTIAL */}
+
+                            <td>
+
+                              <div className="verification-history-credential">
+
+                                <div className="verification-history-credential-icon">
+                                  <FaCertificate />
+                                </div>
+
+                                <div>
+
+                                  <strong>
+                                    {credential.credentialId}
+                                  </strong>
+
+                                  <span>
+                                    Academic Credential
+                                  </span>
+
+                                </div>
+
+                              </div>
+
+                            </td>
+
+
+                            {/* STUDENT */}
+
+                            <td>
+
+                              <div className="verification-history-student">
+
+                                <strong>
+                                  {credential.studentName ||
+                                    "Unknown Student"}
+                                </strong>
+
+                                <span>
+                                  {credential.rollNumber ||
+                                    "N/A"}
+                                </span>
+
+                              </div>
+
+                            </td>
+
+
+                            {/* INSTITUTION */}
+
+                            <td>
+
+                              <div className="verification-history-institution">
+
+                                <FaUniversity />
+
+                                <span>
+                                  {credential.institution ||
+                                    "Not available"}
+                                </span>
+
+                              </div>
+
+                            </td>
+
+
+                            {/* DATE */}
+
+                            <td>
+
+                              <span className="verification-history-date">
+                                {formatDate(
+                                  credential.issueDate
+                                )}
+                              </span>
+
+                            </td>
+
+
+                            {/* VERIFICATION STATUS */}
+
+                            <td>
+
+                              <span
+                                className={
+                                  credentialStatus.className
+                                }
+                              >
+
+                                {credentialStatus.icon}
+
+                                {credentialStatus.label}
+
+                              </span>
+
+                            </td>
+
+
+                            {/* BLOCKCHAIN */}
+
+                            <td>
+
+                              {credential.blockchainStatus ===
+                              "Confirmed" ? (
+
+                                <span className="verification-history-blockchain confirmed">
+
+                                  <FaCheckCircle />
+
+                                  Confirmed
+
+                                </span>
+
+                              ) : (
+
+                                <span className="verification-history-blockchain pending">
+
+                                  <FaClock />
+
+                                  {credential.blockchainStatus ||
+                                    "Pending"}
+
+                                </span>
+
+                              )}
+
+                            </td>
+
+
+                            {/* ACTION */}
+
+                            <td>
+
+                              <Link
+                                to={`/verify?credentialId=${encodeURIComponent(
+                                  credential.credentialId
+                                )}`}
+                                className="verification-history-action"
+                              >
+
+                                <span>
+                                  Verify
+                                </span>
+
+                                <FaExternalLinkAlt />
+
+                              </Link>
+
+                            </td>
+
+                          </tr>
+
+                        );
+                      }
+                    )}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+
+              {/* TABLE FOOTER */}
+
+              <div className="verification-history-footer">
+
+                <span>
+
+                  Showing{" "}
+
+                  <strong>
+                    {filteredCredentials.length}
+                  </strong>{" "}
+
+                  credential
+                  {filteredCredentials.length !== 1
+                    ? "s"
+                    : ""}
+
+                </span>
+
+                <span>
+                  Live verification available for each credential
+                </span>
+
+              </div>
+
+            </section>
+
+          )}
+
+
+        {/* =================================================
+            INFORMATION
+            ================================================= */}
+
+        {!loading &&
+          !error &&
+          credentials.length > 0 && (
+
+            <section className="verification-history-info">
+
+              <div className="verification-history-info-icon">
+                <FaInfoCircle />
+              </div>
+
+              <div>
+
+                <h3>
+                  How verification works
+                </h3>
+
+                <p>
+                  Select <strong>Verify</strong> for any
+                  credential to perform a live integrity check.
+                  The system retrieves the credential, recalculates
+                  its SHA-256 hash, and compares the stored and
+                  blockchain records.
+                </p>
+
+              </div>
+
+            </section>
+
+          )}
 
       </main>
 
@@ -1049,4 +943,4 @@ function Verify() {
   );
 }
 
-export default Verify;
+export default VerificationHistory;
