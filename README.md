@@ -686,3 +686,54 @@ http://localhost:3000
 
 Backend:
 http://localhost:5001
+
+## 🎓 Grading Demonstration Guidelines
+
+To demonstrate the major functionalities of the **Blockchain-Based Academic Credential Verification System** during the project evaluation, execute the following live showcase:
+
+### 1. University Administrator Login Flow
+
+- Open the application and navigate to the **University Login** page.
+- Enter the registered administrator credentials.
+- Show the successful authentication process.
+- After login, demonstrate that the administrator is redirected to the protected **Dashboard**.
+- Explain that **JWT authentication** is used to protect administrator-only routes.
+- Log out and try accessing the Dashboard directly to demonstrate that unauthorized users cannot access protected pages.
+
+---
+
+### 2. Dashboard and Credential Statistics
+
+- After successful login, open the **Dashboard**.
+- Demonstrate the dashboard statistics such as:
+  - Total Credentials
+  - Valid Credentials
+  - Revoked Credentials
+  - Blockchain-Confirmed Credentials
+  - Pending Blockchain Credentials
+- Show the **Recent Credentials** section.
+- Demonstrate the **Quick Actions** available for:
+  - Issue Credential
+  - Manage Students
+  - Verify Credential
+  - Certificate History
+  - Settings
+- Explain that the dashboard provides a centralized view of the academic credential system.
+
+---
+
+### 3. Issuing a New Academic Credential
+
+- Navigate to the **Issue Credential** page.
+- Enter sample academic credential information such as:
+  - Student Name
+  - Roll Number
+  - Degree
+  - Department
+  - Institution
+  - Issue Date
+- Submit the credential.
+- Show how the system generates a unique **Credential ID**, for example:
+
+```text
+BCV-2026-XXXXXX
